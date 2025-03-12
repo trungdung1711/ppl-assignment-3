@@ -1,0 +1,16 @@
+/.venv
+/src/main/minigo/parser/.antlr
+*.Identifier
+/target
+/my-test
+/go-test
+/src/test/solutions
+/src/test/testcases
+/cpp-test
+/.vscode
+/python-test
+**/__pycache__
+/text-test
+/src/test/__pycache__
+/settings.json
+/other-person-test
