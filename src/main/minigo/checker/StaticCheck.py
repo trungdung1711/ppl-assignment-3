@@ -33,6 +33,7 @@ class StaticChecker(BaseVisitor,Utils):
  
     
     def check(self):
+        # can I do this multiple times?
         return self.visit(self.ast,self.global_envi)
 
     def visitProgram(self,ast, c):

@@ -7,6 +7,10 @@ import AST
 class Kind(ABC):
     pass
 
+#==================================
+# USED FOR REDECLARATION
+#==================================
+
 class Function(Kind):
     def __str__(self):
         return "Function"
