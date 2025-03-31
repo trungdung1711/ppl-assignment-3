@@ -23,7 +23,16 @@ class Symbol:
 
     def __str__(self):
         return "Symbol(" + str(self.name) + "," + str(self.mtype) + ("" if self.value is None else "," + str(self.value)) + ")"
+    
 
+#==================================
+# DATA STRUCTURE FOR SEMANTIC CHECKER
+#==================================
+
+
+#==================================
+# ACTUALLY, SEMANTIC CHECKER
+#==================================
 class StaticChecker(BaseVisitor,Utils):
         
     
@@ -35,38 +44,154 @@ class StaticChecker(BaseVisitor,Utils):
     def check(self):
         # can I do this multiple times?
         return self.visit(self.ast,self.global_envi)
-
-    def visitProgram(self,ast, c):
-        reduce(lambda acc,ele: [self.visit(ele,acc)] + acc , ast.decl,c)
-        return c
-
-    def visitVarDecl(self, ast, c):
-        res = self.lookup(ast.varName, c, lambda x: x.name)
-        if not res is None:
-            raise Redeclared(Variable(), ast.varName) 
-        if ast.varInit:
-            initType = self.visit(ast.varInit, c)
-            if ast.varType is None:
-                ast.varType = initType
-            if not type(ast.varType) is type(initType):
-                raise TypeMismatch(ast)
-        return Symbol(ast.varName, ast.varType,None)
-        
-
-    def visitFuncDecl(self,ast, c):
-        res = self.lookup(ast.name, c, lambda x: x.name)
-        if not res is None:
-            raise Redeclared(Function(), ast.name)
-        return Symbol(ast.name, MType([], ast.retType))
-
-    def visitIntLiteral(self,ast, c):
-        return IntType()
     
-    def visitFloatLiteral(self,ast, c):
-        return FloatType()
+
+    #==================================
+    # IMPLEMENTATION FOR THESE METHODS
+    #==================================
+    def visitProgram(self, param):
+        return None
     
-    def visitId(self,ast,c):
-        res = self.lookup(ast.name, c, lambda x: x.name)
-        if res is None:
-            raise Undeclared(Identifier(), ast.name)
-        return res.mtype
+    
+    def visitVarDecl(self, param):
+        return None
+    
+
+    def visitConstDecl(self, param):
+        return None
+    
+   
+    def visitFuncDecl(self, param):
+        return None
+    
+
+    def visitMethodDecl(self, param):
+        return None
+    
+
+    def visitPrototype(self, param):
+        return None
+    
+    
+    def visitIntType(self, param):
+        return None
+    
+    
+    def visitFloatType(self, param):
+        return None
+    
+    
+    def visitBoolType(self, param):
+        return None
+    
+    
+    def visitStringType(self, param):
+        return None
+    
+
+    def visitVoidType(self, param):
+        return None
+    
+
+    def visitArrayType(self, param):
+        return None
+    
+
+    def visitStructType(self, param):
+        return None
+
+
+    def visitInterfaceType(self, param):
+        return None
+    
+
+    def visitBlock(self, param):
+        return None
+ 
+
+    def visitAssign(self, param):
+        return None
+   
+   
+    def visitIf(self, param):
+        return None
+    
+
+    def visitForBasic(self, param):
+        return None
+ 
+
+    def visitForStep(self, param):
+        return None
+
+
+    def visitForEach(self, param):
+        return None
+
+
+    def visitContinue(self, param):
+        return None
+    
+
+    def visitBreak(self, param):
+        return None
+    
+
+    def visitReturn(self, param):
+        return None
+    
+
+    def visitBinaryOp(self, param):
+        return None
+    
+    
+    def visitUnaryOp(self, param):
+        return None
+    
+    
+    def visitFuncCall(self, param):
+        return None
+    
+
+    def visitMethCall(self, param):
+        return None
+    
+
+    def visitId(self, param):
+        return None
+    
+
+    def visitArrayCell(self, param):
+        return None
+    
+
+    def visitFieldAccess(self, param):
+        return None
+    
+
+    def visitIntLiteral(self, param):
+        return None
+    
+    
+    def visitFloatLiteral(self, param):
+        return None
+    
+    
+    def visitBooleanLiteral(self, param):
+        return None
+    
+    
+    def visitStringLiteral(self, param):
+        return None
+    
+
+    def visitArrayLiteral(self, param):
+        return None
+    
+
+    def visitStructLiteral(self, param):
+        return None
+    
+
+    def visitNilLiteral(self, param):
+        return None
