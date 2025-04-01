@@ -32,15 +32,21 @@ class Symbol:
 
 #==================================
 # ACTUALLY, SEMANTIC CHECKER
+# CAN DECIDE HOW TO TRAVERSE
 #==================================
 class StaticChecker(BaseVisitor,Utils):
         
-    
+    #==================================
+    # USED TO INITIALIZE PREDEFINED FUNCTION ?
+    #==================================
     def __init__(self,ast):
         self.ast = ast
         self.global_envi = [Symbol("getInt",MType([],IntType())),Symbol("putIntLn",MType([IntType()],VoidType()))]
- 
-    
+
+
+    #==================================
+    # CHECK WILL BE CALLED TO START TRAVERSING
+    #==================================
     def check(self):
         # can I do this multiple times?
         return self.visit(self.ast,self.global_envi)
@@ -48,8 +54,9 @@ class StaticChecker(BaseVisitor,Utils):
 
     #==================================
     # IMPLEMENTATION FOR THESE METHODS
+    # PASS ANY NUMBER OF ARGUMENTS
     #==================================
-    def visitProgram(self, param):
+    def visitProgram(self, ast, param):
         return None
     
     
