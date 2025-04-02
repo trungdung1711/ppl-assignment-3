@@ -1,28 +1,17 @@
 // test.go
 package main
 
-var globalVar int = 1000
+var a string = 100
 
 
 func main() {
-	var funcVar string = "Hello, World!"
-	println(funcVar)
-
-	for i := 1; i < 10 ; i += 1 {
-		var forVar = 100
-		println(forVar)
-	}
-
-
-	for i := 1; i < 10 ; i += 1 {
-	var forVar = 100
-	println(forVar)
-	}
 }
 
-var globalVar1 int = 200
+type Animal struct {
+	name string
+}
 
 
-func test1(a int, b int) int {
-	return a + b
+type Animal struct {
+	some string
 }

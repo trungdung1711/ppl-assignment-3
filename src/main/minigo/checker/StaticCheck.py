@@ -30,6 +30,106 @@ class Symbol:
 #==================================
 
 
+'''
+Object = *Func      O
+    | *Var          O
+    | *Const        O
+    | *TypeName     O
+    | *Label        X
+    | *PkgName      X
+    | *Builtin      O
+    | *Nil          O
+'''
+
+'''
+Type = *Basic       O
+    | *Pointer      X
+    | *Array        O
+    | *Slice        X
+    | *Map          X
+    | *Chan         X
+    | *Struct       O
+    | *Tuple        X
+    | *Signature    O
+    | *Alias        X
+    | *Named        O
+    | *Interface    O
+    | *Union        X
+    | *TypeParam    X
+'''
+class Type(ABC):
+    @abstractmethod
+    def string():
+        pass
+
+
+class Object(ABC):
+    @abstractmethod
+    def parent(self):
+        pass
+
+    def name(self):
+        pass
+
+    @abstractmethod
+    def type(self):
+        pass
+
+    @abstractmethod
+    def set_type(self, type):
+        pass
+
+    @abstractmethod
+    def set_parent(self, scope):
+        pass
+
+
+class Scope:
+    def __init__(self, parent, children, number, elems, isFunc):
+        self.parent     = parent    # Scope
+        self.children   = children  # List[Scope]
+        self.number     = number    # int
+        self.elems      = elems     # Dict[string, Object]
+        self.isFunc     = isFunc    # bool
+
+
+    def parent(self):
+        return self.parent
+    
+
+    def len(self):
+        return len(self.elems)
+    
+
+    def num_children(self):
+        return len(self.children)
+    
+
+    def child(self, i):
+        return self.children[i]
+
+
+#==================================
+# UTILITY FUNCTION
+#==================================
+def new_scope(parent : Scope):
+    """Simulate the function NewScope in Go, return
+    a new empty scope, contained in the given parent. Adapt
+    eager initilization rather lazy initialization 
+
+    Args:
+        parent (Scope): the parent scope
+
+    Returns:
+        Scope: the newly created scope
+    """
+    s = Scope(parent, [], 0, {}, False)
+    if parent is not None:
+        parent.children.append(s)
+        s.number = len(parent.children)
+    return s
+
+
 #==================================
 # ACTUALLY, SEMANTIC CHECKER
 # CAN DECIDE HOW TO TRAVERSE
@@ -41,6 +141,10 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     def __init__(self,ast):
         self.ast = ast
+        #==================================
+        # it seems that this is the same as
+        # Scope/Object/Type-like structure
+        #==================================
         self.global_envi = [Symbol("getInt",MType([],IntType())),Symbol("putIntLn",MType([IntType()],VoidType()))]
 
 

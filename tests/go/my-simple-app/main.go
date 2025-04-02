@@ -25,6 +25,7 @@ func main() {
 		fmt.Printf("Error parsing file: %v\n", err)
 		os.Exit(1)
 	}
+
 	info := &types.Info{
 		Defs:   make(map[*ast.Ident]types.Object),
 		Uses:   make(map[*ast.Ident]types.Object),
@@ -37,5 +38,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	fmt.Print("AST================================\n")
+	inspect.PrintAst(filename)
+	fmt.Print("SEMANTIC ANALYSIS==================\n")
 	inspect.PrintScope(pkg.Scope(), 0)
 }
