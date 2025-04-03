@@ -1,12 +1,21 @@
 package main
 
 func main() {
-	var Animal Animal = Animal{name: ""}
-	println(Animal.name)
+	function()
+	var animal Animal = Animal{name: "Tom"}
+	animal.function()
 }
-
-var Global int = 100
 
 type Animal struct {
 	name string
 }
+
+func function() int {
+	return 100
+}
+
+func (a *Animal) function() int {
+	return 100
+}
+
+type MyType Animal

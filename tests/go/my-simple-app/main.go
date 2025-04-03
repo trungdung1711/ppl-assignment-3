@@ -38,8 +38,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Print("AST================================\n")
-	inspect.PrintAst(filename)
-	fmt.Print("SEMANTIC ANALYSIS==================\n")
+	// fmt.Print("AST================================\n")
+	// inspect.PrintAst(filename)
 	inspect.PrintScope(pkg.Scope(), 0)
 }
