@@ -1,0 +1,24 @@
+package main
+
+
+type Animal struct {
+	name string
+	age int
+	human float32
+}
+
+func main() {
+
+}
+
+func (a *Animal) eat(b int, c float64, d string) int {
+	return 100
+}
+
+func (a *Animal) drink() int {
+	return 100
+}
+
+type Computer interface {
+	getValue(a int) int
+}

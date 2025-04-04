@@ -1,0 +1,48 @@
+// test.go
+package main
+
+
+func something() {
+	
+}
+
+
+func something(w Weird) int {
+	var a = 100
+	var b float = 200
+}
+
+var b int = ""
+var a Animal = Animal {name: "100"}
+var c int = a.set()
+
+func main1() {
+	var a int = 4.5
+	var a float = 4.5
+}
+
+func main() {
+
+}
+
+type Animal struct {
+	name string
+}
+
+func (a *Animal) eat() float {
+	var a float = 100
+}
+
+func (a *Animal) set() float {
+	var a int = 100
+	var a int = ""
+}
+
+func (a *Some) set() float {
+	var b int = 100
+	var b int = 200
+}
+
+type Weird struct {
+	weird float
+}
