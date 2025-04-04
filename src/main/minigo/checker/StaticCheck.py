@@ -139,32 +139,40 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     # USED TO INITIALIZE PREDEFINED FUNCTION ?
     #==================================
-    def __init__(self,ast):
+    def __init__(self, ast):
         self.ast = ast
         #==================================
         # it seems that this is the same as
         # Scope/Object/Type-like structure
+        # The checker in Go
         #==================================
-        self.global_envi = [Symbol("getInt",MType([],IntType())),Symbol("putIntLn",MType([IntType()],VoidType()))]
 
 
     #==================================
-    # CHECK WILL BE CALLED TO START TRAVERSING
+    # LOGIC FOR SEMANTIC ANALYSIS
     #==================================
     def check(self):
         # can I do this multiple times?
-        return self.visit(self.ast,self.global_envi)
-    
+        # YES :)
+        print('check')
+        self.visit(self.ast, (1, 2, 3, 4, 5))
+        return
+
 
     #==================================
-    # IMPLEMENTATION FOR THESE METHODS
+    # TRAVERSING LOGIC
     # PASS ANY NUMBER OF ARGUMENTS
     #==================================
     def visitProgram(self, ast, param):
+        print('program')
+        return
+    
+    
+    def visitParamDecl(self, ast, param):
         return None
     
     
-    def visitVarDecl(self, param):
+    def visitVarDecl(self, ast, param):
         return None
     
 

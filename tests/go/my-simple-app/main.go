@@ -38,7 +38,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	// fmt.Print("AST================================\n")
-	// inspect.PrintAst(filename)
 	inspect.PrintScope(pkg.Scope(), 0)
 }

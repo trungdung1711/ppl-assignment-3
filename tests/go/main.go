@@ -18,4 +18,6 @@ func (a *Animal) function() int {
 	return 100
 }
 
-type MyType Animal
+type Human interface {
+	getName() string
+}

@@ -1,0 +1,121 @@
+package main
+
+
+var t Table;
+var someth int = t.lock(3, 4)
+
+var A int = "100";
+var B string = 100
+var C bool = false
+
+const M = "string"
+const N = 100
+const P = 100
+
+func DoingSomethingElse(a int, b float32, c string) int {
+	var a int = 100
+	var b float = 200
+
+}
+
+type Interface interface {
+	Function(number float32) float32
+	Function(some float32) float64
+}
+
+type Computer interface {
+	func1(number float32)
+	func1(str string) string
+}
+
+type Test interface {
+	getTest(number float32)
+	returnTest(number float32)
+	getTest(number int)
+	returnTest(c Computer) int;
+}
+
+func (h *Haha) weird(a float, b float, h *Human) {
+	var a int = ""
+	var a float = 3.4
+}
+
+func letDoIt(a float, b string12, c int32) {
+
+}
+
+type Human struct {
+	name float32
+	parents string
+	age int
+	food float64
+	some *Human
+	thing int32
+	thong int32
+	abc int64
+	numa *Test
+	kame string
+}
+
+type Table struct {
+	name string
+	age int
+	weird *Table
+}
+
+func (t *Table) lock(a int, b int) int {
+	var m int = 100
+	var m string = ""
+	var m float = 888.7
+}
+
+func (t *Table) lock1(a float, b float) {
+
+}
+
+func doSomething(a float, b float, a float) {
+	var a float = 3.4
+	var a string = 100
+}
+
+var Chair int = ""
+
+
+func main() {
+	var a int = 100
+	var a string = ""
+	var a float = 400.4
+}
+
+func Function(a float, b int) {
+	var a int = ""
+	var c string = 100
+}
+
+
+var D int = ""
+var E string = ""
+var F float = "Some thing"
+
+type Weapon struct {
+	name int
+	string float32
+}
+
+
+func (w *Weapon) name(a float) {
+	var a int = 200
+	var b int = ""
+}
+
+func (w *Weapon) attack(a float, b float) {
+	var a int = 100
+	var b string = "string"
+	var c float = 200
+}
+
+func (w *Weapon) attack1(a float, b string) {
+	var a string = 200
+	b := "string"
+	var b int = 100
+}
