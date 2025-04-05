@@ -4,6 +4,7 @@ func main() {
 	function()
 	var animal Animal = Animal{name: "Tom"}
 	animal.function()
+	println(Global)
 }
 
 type Animal struct {
@@ -21,3 +22,5 @@ func (a *Animal) function() int {
 type Human interface {
 	getName() string
 }
+
+var Global string = "This is a global variable\n"

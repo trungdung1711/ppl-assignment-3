@@ -7,29 +7,33 @@ from Utils import Utils
 from StaticError import *
 from functools import reduce
 
-class MType:
-    def __init__(self,partype,rettype):
-        self.partype = partype
-        self.rettype = rettype
-
-    def __str__(self):
-        return "MType([" + ",".join(str(x) for x in self.partype) + "]," + str(self.rettype) + ")"
-
-class Symbol:
-    def __init__(self,name,mtype,value = None):
-        self.name = name
-        self.mtype = mtype
-        self.value = value
-
-    def __str__(self):
-        return "Symbol(" + str(self.name) + "," + str(self.mtype) + ("" if self.value is None else "," + str(self.value)) + ")"
-    
 
 #==================================
-# DATA STRUCTURE FOR SEMANTIC CHECKER
+# DEPRECATED
+#==================================
+# class MType:
+#     def __init__(self,partype,rettype):
+#         self.partype = partype
+#         self.rettype = rettype
+
+#     def __str__(self):
+#         return "MType([" + ",".join(str(x) for x in self.partype) + "]," + str(self.rettype) + ")"
+
+# class Symbol:
+#     def __init__(self,name,mtype,value = None):
+#         self.name = name
+#         self.mtype = mtype
+#         self.value = value
+
+#     def __str__(self):
+#         return "Symbol(" + str(self.name) + "," + str(self.mtype) + ("" if self.value is None else "," + str(self.value)) + ")"
+#==================================
+# DEPRECATED
 #==================================
 
-
+#==================================
+# SCOPE/OBJECT/TYPE STRUCTURE
+#==================================
 '''
 Object = *Func      O
     | *Var          O
@@ -57,44 +61,57 @@ Type = *Basic       O
     | *Union        X
     | *TypeParam    X
 '''
-class Type(ABC):
-    @abstractmethod
-    def string():
-        pass
+class ZType(ABC):
+    pass
 
 
-class Object(ABC):
-    @abstractmethod
-    def parent(self):
-        pass
+class Signature(ZType):
+    def __init__(self, recv, params, result):
+        self.recv    : Var        = recv
+        self.params  : List[Var]  = params
+        self.result  : Var        = result
 
-    def name(self):
-        pass
 
-    @abstractmethod
-    def type(self):
-        pass
+class ZObject(ABC):
+    def __init__(self, parent, name, typ):
+        self.parent : ZScope   = parent
+        self.name   : str      = name
+        self.type   : ZType    = typ
 
-    @abstractmethod
-    def set_type(self, type):
-        pass
 
-    @abstractmethod
+    def set_type(self, typ):
+        self.type = typ
+
+
     def set_parent(self, scope):
-        pass
+        self.parent = scope
 
 
-class Scope:
+class Func(ZObject):
+    pass
+
+
+class Var(ZObject):
+    def __init__(self, parent, name, typ, is_field):
+        self.is_field = is_field
+        super().__init__(parent, name, typ)
+
+
+class TypeName(ZObject):
+    pass
+
+
+class ZScope:
     def __init__(self, parent, children, number, elems, isFunc):
-        self.parent     = parent    # Scope
-        self.children   = children  # List[Scope]
-        self.number     = number    # int
-        self.elems      = elems     # Dict[string, Object]
-        self.isFunc     = isFunc    # bool
+        self.parent     : ZScope             = parent    # None if it is the universe scope
+        self.children   : List[ZScope]       = children  # List[Scope]
+        self.number     : int               = number    # int
+        self.elems      : dict[str, ZObject] = elems     # Dict[string, Object]
+        self.isFunc     : bool              = isFunc    # bool
 
 
-    def parent(self):
-        return self.parent
+    # def parent(self):
+    #     return self.parent
     
 
     def len(self):
@@ -109,10 +126,21 @@ class Scope:
         return self.children[i]
 
 
+    def look_up(self, name):
+        if name in self.elems:
+            return self.elems[name]
+        return None
+
+
+    def insert(self, obj : ZObject):
+        obj.set_parent(self)
+        self.elems[obj.name] = obj
+
+
 #==================================
 # UTILITY FUNCTION
 #==================================
-def new_scope(parent : Scope):
+def new_scope(parent : ZScope):
     """Simulate the function NewScope in Go, return
     a new empty scope, contained in the given parent. Adapt
     eager initilization rather lazy initialization 
@@ -123,7 +151,7 @@ def new_scope(parent : Scope):
     Returns:
         Scope: the newly created scope
     """
-    s = Scope(parent, [], 0, {}, False)
+    s = ZScope(parent=parent, children=[], number=0, elems={}, isFunc=False)
     if parent is not None:
         parent.children.append(s)
         s.number = len(parent.children)
@@ -154,8 +182,23 @@ class StaticChecker(BaseVisitor,Utils):
     def check(self):
         # can I do this multiple times?
         # YES :)
-        print('check')
-        self.visit(self.ast, (1, 2, 3, 4, 5))
+        #==================================
+        # DECLARATION PASS
+        #==================================
+        # universe_scope is used for built-in things
+        # global_scope is used for package
+        universe_scope = new_scope(parent=None)
+        #==================================
+        # UNIVERSE SCOPE SETTINGS
+        #==================================
+        global_scope = new_scope(parent=universe_scope)
+        temp_global_scope = []
+        parameters = {
+            'pass' : 1,
+            'global_scope' : global_scope,
+            'temp_global_scope' : temp_global_scope,
+        }
+        self.visit(self.ast, param=parameters)
         return
 
 
@@ -164,29 +207,111 @@ class StaticChecker(BaseVisitor,Utils):
     # PASS ANY NUMBER OF ARGUMENTS
     #==================================
     def visitProgram(self, ast, param):
-        print('program')
-        return
-    
-    
-    def visitParamDecl(self, ast, param):
-        return None
-    
-    
+        pass_num = param['pass']
+        if pass_num == 1:
+            # pass 1: declaration pass
+            [self.visit(decl, param=param) for decl in ast.decl]
+        else:
+            pass
+
+
     def visitVarDecl(self, ast, param):
-        return None
+        pass_num = param['pass']
+        if pass_num == 1:
+            name = ast.varName
+            temp_global_scope = param['temp_global_scope']
+            if name in temp_global_scope:
+                raise Redeclared(k=Variable(), n=name)
+            else:
+                temp_global_scope.append(name)
+            return
+        
+        else:
+            pass
     
 
-    def visitConstDecl(self, param):
-        return None
+    def visitConstDecl(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 1:
+            name = ast.conName
+            temp_global_scope = param['temp_global_scope']
+            if name in temp_global_scope:
+                raise Redeclared(k=Constant(), n=name)
+            else:
+                temp_global_scope.append(name)
+            return
+        
+        else:
+            pass
     
    
-    def visitFuncDecl(self, param):
-        return None
-    
+    def visitFuncDecl(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 1:
+            global_scope = param['global_scope']
+            temp_global_scope = param['temp_global_scope']
 
-    def visitMethodDecl(self, param):
+            name = ast.name
+            if name in temp_global_scope:
+                raise Redeclared(k=Function(), n=name)
+            else:
+                obj = Func(parent=None, name=name, typ=None)
+                global_scope.insert(obj)
+                temp_global_scope.append(name)
+            return
+
+        else:
+            pass
+
+
+    def visitStructType(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 1:
+            global_scope = param['global_scope']
+            temp_global_scope = param['temp_global_scope']
+
+            name = ast.name
+            if name in temp_global_scope:
+                raise Redeclared(k=Type(), n=name)
+            else:
+                obj = TypeName(parent=None, name=name, typ=None)
+                global_scope.insert(obj)
+                temp_global_scope.append(name)
+            
+        else:
+            return
+
+
+    def visitInterfaceType(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 1:
+            global_scope = param['global_scope']
+            temp_global_scope = param['temp_global_scope']
+
+            name = ast.name
+            if name in temp_global_scope:
+                raise Redeclared(k=Type(), n=name)
+            else:
+                obj = TypeName(parent=None, name=name, typ=None)
+                global_scope.insert(obj)
+                temp_global_scope.append(name)
+            
+        else:
+            return
+
+
+    def visitMethodDecl(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 1:
+            pass
+
+        else:
+            return
+
+
+    def visitParamDecl(self, ast, param):
         return None
-    
+
 
     def visitPrototype(self, param):
         return None
@@ -214,15 +339,7 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitArrayType(self, param):
         return None
-    
 
-    def visitStructType(self, param):
-        return None
-
-
-    def visitInterfaceType(self, param):
-        return None
-    
 
     def visitBlock(self, param):
         return None
