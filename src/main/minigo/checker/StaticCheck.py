@@ -7,6 +7,11 @@ from Utils import Utils
 from StaticError import *
 from functools import reduce
 
+#==================================
+# WARNING
+#==================================
+from enum import Enum
+
 
 #==================================
 # DEPRECATED
@@ -61,8 +66,23 @@ Type = *Basic       O
     | *Union        X
     | *TypeParam    X
 '''
+#==================================
+# TYPE
+#==================================
 class ZType(ABC):
     pass
+
+
+class BasicKind(Enum):
+    INT     = 'int'
+    FLOAT   = 'float'
+    BOOL    = 'boolean'
+    STRING  = 'string'
+
+
+class Basic(ZType):
+    def __init__(self, kind : BasicKind):
+        self.kind = kind
 
 
 class Signature(ZType):
@@ -72,6 +92,9 @@ class Signature(ZType):
         self.result  : Var        = result
 
 
+#==================================
+# OBJECT
+#==================================
 class ZObject(ABC):
     def __init__(self, parent, name, typ):
         self.parent : ZScope   = parent
@@ -97,17 +120,40 @@ class Var(ZObject):
         super().__init__(parent, name, typ)
 
 
+#Biểu thức khởi tạo cho biến và hằng: 
+# Biểu thức này có các toán hạng là hằng, 
+# chỉ sử dụng các phép toán từ mức 2 đến mức 7 
+# trong bảng độ ưu tiên phép toán. 
+# Không có gọi hàm hay phương thức. 
+# Hằng trong các biểu thức này là hằng có tên 
+# (của một khai báo hằng trước đó) hoặc không tên. 
+# Các hằng không tên kiểu tích hợp như StructLiteral
+#  và ArrayLiteral thì chỉ xuất hiện một mình 
+# trong các biểu thức này chứ không tham gia 
+# vào phép toán nào khác 
+# (không thiết kế test mà các hằng 
+# kiểu tích hợp tham gia phép toán khác).
+class Const(ZObject):
+    def __init__(self, parent, name, typ, value):
+        self.value = value
+        self.eval = False
+        super().__init__(parent, name, typ)
+
+
 class TypeName(ZObject):
     pass
 
 
+#==================================
+# SCOPE
+#==================================
 class ZScope:
     def __init__(self, parent, children, number, elems, isFunc):
-        self.parent     : ZScope             = parent    # None if it is the universe scope
-        self.children   : List[ZScope]       = children  # List[Scope]
-        self.number     : int               = number    # int
-        self.elems      : dict[str, ZObject] = elems     # Dict[string, Object]
-        self.isFunc     : bool              = isFunc    # bool
+        self.parent     : ZScope                = parent    # None if it is the universe scope
+        self.children   : List[ZScope]          = children  # List[Scope]
+        self.number     : int                   = number    # int
+        self.elems      : dict[str, ZObject]    = elems     # Dict[string, Object]
+        self.isFunc     : bool                  = isFunc    # bool
 
 
     # def parent(self):
@@ -129,6 +175,16 @@ class ZScope:
     def look_up(self, name):
         if name in self.elems:
             return self.elems[name]
+        return None
+    
+
+    def look_up_parent(self, name):
+        s = self
+        while s is not None:
+            obj = s.look_up(name=name)
+            if obj is not None:
+                return obj
+            s = s.parent
         return None
 
 
@@ -192,13 +248,23 @@ class StaticChecker(BaseVisitor,Utils):
         # UNIVERSE SCOPE SETTINGS
         #==================================
         global_scope = new_scope(parent=universe_scope)
-        temp_global_scope = []
+        # used in the first case to evaluate value of const
+        temp_global_scope = new_scope(parent=universe_scope)
         parameters = {
             'pass' : 1,
             'global_scope' : global_scope,
             'temp_global_scope' : temp_global_scope,
         }
         self.visit(self.ast, param=parameters)
+
+
+        #==================================
+        # SECOND PASS
+        #==================================
+        parameters = {
+            'pass' : 2,
+            'global_scope' : global_scope
+        }
         return
 
 
@@ -215,34 +281,127 @@ class StaticChecker(BaseVisitor,Utils):
             pass
 
 
+    # Biểu thức khởi tạo cho biến và hằng: 
+    # Biểu thức này có các toán hạng là hằng, 
+    # chỉ sử dụng các phép toán từ mức 2 đến mức 
+    # 7 trong bảng độ ưu tiên phép toán. 
+    # Không có gọi hàm hay phương thức. 
+    # Hằng trong các biểu thức này là hằng có tên 
+    # (của một khai báo hằng trước đó) 
+    # hoặc không tên. Các hằng không tên kiểu tích hợp 
+    # như StructLiteral và ArrayLiteral 
+    # thì chỉ xuất hiện một mình trong các biểu thức này 
+    # chứ không tham gia vào phép toán nào khác 
+    # (không thiết kế test mà các hằng kiểu tích hợp 
+    # tham gia phép toán khác).
     def visitVarDecl(self, ast, param):
         pass_num = param['pass']
         if pass_num == 1:
             name = ast.varName
             temp_global_scope = param['temp_global_scope']
-            if name in temp_global_scope:
+
+            if temp_global_scope.look_up(name) is not None:
                 raise Redeclared(k=Variable(), n=name)
             else:
-                temp_global_scope.append(name)
+                obj = Var(None, name=name, typ=None, is_field=False)
+                temp_global_scope.insert(obj)
             return
         
         else:
             pass
     
 
+    # Biểu thức khởi tạo cho biến và hằng: 
+    # Biểu thức này có các toán hạng là hằng, 
+    # chỉ sử dụng các phép toán từ mức 2 đến mức 
+    # 7 trong bảng độ ưu tiên phép toán. 
+    # Không có gọi hàm hay phương thức. 
+    # Hằng trong các biểu thức này là hằng có tên 
+    # (của một khai báo hằng trước đó) 
+    # hoặc không tên. 
+    # ###################################
+    # Các hằng không tên kiểu tích hợp
+    # NOTE: This would require struct collection
+    # như StructLiteral và ArrayLiteral 
+    # thì chỉ xuất hiện một mình trong các biểu thức này 
+    # chứ không tham gia vào phép toán nào khác 
+    # (không thiết kế test mà các hằng kiểu tích hợp 
+    # tham gia phép toán khác).
+    # const CONSTANT = always evaluated at compile time
     def visitConstDecl(self, ast, param):
         pass_num = param['pass']
         if pass_num == 1:
             name = ast.conName
             temp_global_scope = param['temp_global_scope']
-            if name in temp_global_scope:
+            if temp_global_scope.look_up(name) is not None:
                 raise Redeclared(k=Constant(), n=name)
             else:
-                temp_global_scope.append(name)
-            return
+                # evaluate the value because of the constraint
+                # can be evaluated
+                # must evaluate the type and the value
+                # TODO: evaluate the type and the value
+                # the expression is restricted (if not -> catch more errors)
+                obj = Const(None, name, None, None)
+                temp_global_scope.insert(obj)
         
         else:
             pass
+
+
+    def visitBinaryOp(self, param):
+        return None
+    
+    
+    def visitUnaryOp(self, param):
+        return None
+    
+
+    def visitId(self, param):
+        return None
+    
+
+    def visitIntLiteral(self, param):
+        return None
+    
+    
+    def visitFloatLiteral(self, param):
+        return None
+    
+    
+    def visitBooleanLiteral(self, param):
+        return None
+    
+    
+    def visitStringLiteral(self, param):
+        return None
+    
+
+    def visitArrayLiteral(self, param):
+        return None
+    
+
+    def visitStructLiteral(self, param):
+        return None
+    
+
+    def visitNilLiteral(self, param):
+        return None
+
+
+    def visitIntType(self, param):
+        return None
+    
+    
+    def visitFloatType(self, param):
+        return None
+    
+    
+    def visitBoolType(self, param):
+        return None
+    
+    
+    def visitStringType(self, param):
+        return None
     
    
     def visitFuncDecl(self, ast, param):
@@ -252,12 +411,12 @@ class StaticChecker(BaseVisitor,Utils):
             temp_global_scope = param['temp_global_scope']
 
             name = ast.name
-            if name in temp_global_scope:
+            if temp_global_scope.look_up(name) is not None:
                 raise Redeclared(k=Function(), n=name)
             else:
                 obj = Func(parent=None, name=name, typ=None)
                 global_scope.insert(obj)
-                temp_global_scope.append(name)
+                temp_global_scope.insert(obj)
             return
 
         else:
@@ -271,12 +430,12 @@ class StaticChecker(BaseVisitor,Utils):
             temp_global_scope = param['temp_global_scope']
 
             name = ast.name
-            if name in temp_global_scope:
+            if temp_global_scope.look_up(name) is not None:
                 raise Redeclared(k=Type(), n=name)
             else:
                 obj = TypeName(parent=None, name=name, typ=None)
                 global_scope.insert(obj)
-                temp_global_scope.append(name)
+                temp_global_scope.insert(obj)
             
         else:
             return
@@ -289,12 +448,12 @@ class StaticChecker(BaseVisitor,Utils):
             temp_global_scope = param['temp_global_scope']
 
             name = ast.name
-            if name in temp_global_scope:
+            if temp_global_scope.look_up(name) is not None:
                 raise Redeclared(k=Type(), n=name)
             else:
                 obj = TypeName(parent=None, name=name, typ=None)
                 global_scope.insert(obj)
-                temp_global_scope.append(name)
+                temp_global_scope.insert(obj)
             
         else:
             return
@@ -314,22 +473,6 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitPrototype(self, param):
-        return None
-    
-    
-    def visitIntType(self, param):
-        return None
-    
-    
-    def visitFloatType(self, param):
-        return None
-    
-    
-    def visitBoolType(self, param):
-        return None
-    
-    
-    def visitStringType(self, param):
         return None
     
 
@@ -376,14 +519,6 @@ class StaticChecker(BaseVisitor,Utils):
     def visitReturn(self, param):
         return None
     
-
-    def visitBinaryOp(self, param):
-        return None
-    
-    
-    def visitUnaryOp(self, param):
-        return None
-    
     
     def visitFuncCall(self, param):
         return None
@@ -393,41 +528,9 @@ class StaticChecker(BaseVisitor,Utils):
         return None
     
 
-    def visitId(self, param):
-        return None
-    
-
     def visitArrayCell(self, param):
         return None
     
 
     def visitFieldAccess(self, param):
-        return None
-    
-
-    def visitIntLiteral(self, param):
-        return None
-    
-    
-    def visitFloatLiteral(self, param):
-        return None
-    
-    
-    def visitBooleanLiteral(self, param):
-        return None
-    
-    
-    def visitStringLiteral(self, param):
-        return None
-    
-
-    def visitArrayLiteral(self, param):
-        return None
-    
-
-    def visitStructLiteral(self, param):
-        return None
-    
-
-    def visitNilLiteral(self, param):
         return None

@@ -215,14 +215,24 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.FUNCTION, 'doSomething')
         self.assertTrue(TestChecker.test(input,expect,410))
 
+    # NOTE: undeclared TYPE
+    # Đối với lỗi Undeclared thì 
+    # chỉ bắt các lỗi như đã mô tả trong Assignment 3 Spec. 
+    # Đối với trường hợp không mô tả (như Type) thì 
+    # xem như không xảy ra, 
+    # sẽ không có test nào gây ra lỗi này.
+    # -> ALL TYPES ARE ALL DECLARED
     def test_411(self):
         input = \
         '''
         func main() {
             var a int = 100
         }
+
+        const main = 100
+        var a int = 100
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.CONSTANT, 'main')
         self.assertTrue(TestChecker.test(input,expect,411))
 
     def test_412(self):

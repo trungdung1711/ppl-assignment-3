@@ -1,0 +1,9 @@
+package main
+
+type Human struct {
+    name string
+    age int
+    son *Human
+}
+
+var array [5][4]int;

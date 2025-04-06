@@ -1,0 +1,12 @@
+package main
+
+type Human struct {
+    name string
+}
+
+func (h *Human) name(a string) {
+
+}
+
+func main() {
+}
