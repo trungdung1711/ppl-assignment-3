@@ -1,8 +1,7 @@
 package main
 
-
 func main() {
-    var a int = Human{name : "", age : 100}
+    var a int = Human * 100
 }
 
 type Human struct {

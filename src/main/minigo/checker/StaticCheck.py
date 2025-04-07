@@ -60,38 +60,23 @@ Type = *Basic       O
 class ZType(ABC):
     pass
 
-
 class BasicKind(Enum):
     INT     = 'int'
     FLOAT   = 'float'
     BOOL    = 'boolean'
     STRING  = 'string'
-
-
 class Basic(ZType):
     def __init__(self, kind : BasicKind):
         self.kind = kind
-
-
-    def __eq__(self, value):
-        if isinstance(value, Basic):
-            return self.kind == value.kind
-        return False
-    
-
 class Array(ZType):
     def __init__(self, len, elem):
         self.len    : int    = len
         self.elem   : ZType  = elem
-
-
 class Signature(ZType):
     def __init__(self, recv, params, result):
         self.recv    : Var        = recv
         self.params  : List[Var]  = params
         self.result  : Var        = result
-
-
 class Named(ZType):
     """
     Represents a struct type
@@ -108,10 +93,17 @@ class Named(ZType):
     def has_field(self, name : str):
         fields_name = map(lambda var: var.name, self.fields)
         return (name in fields_name)
-    
+
 
 def identical(t1 : ZType, t2 : ZType) -> bool:
-    pass
+    if t1 is t2:
+        return True
+    elif type(t1) != type(t2):
+        return False
+    elif isinstance(t1, Basic) and isinstance(t2, Basic):
+        return t1.kind == t2.kind
+    else:
+        return False
 
 
 #==================================
@@ -140,38 +132,28 @@ class ZObject(ABC):
     def set_undeclared(self):
         self.declared = False
 
-
 class Func(ZObject):
     pass
-
-
 class Var(ZObject):
     def __init__(self, parent, name, typ, is_field=False):
         self.is_field = is_field
         super().__init__(parent, name, typ)
-
-
-#Biểu thức khởi tạo cho biến và hằng: 
-# Biểu thức này có các toán hạng là hằng, 
-# chỉ sử dụng các phép toán từ mức 2 đến mức 7 
-# trong bảng độ ưu tiên phép toán. 
-# Không có gọi hàm hay phương thức. 
-# Hằng trong các biểu thức này là hằng có tên 
-# (của một khai báo hằng trước đó) hoặc không tên. 
-# Các hằng không tên kiểu tích hợp như StructLiteral
-#  và ArrayLiteral thì chỉ xuất hiện một mình 
-# trong các biểu thức này chứ không tham gia 
-# vào phép toán nào khác 
-# (không thiết kế test mà các hằng 
-# kiểu tích hợp tham gia phép toán khác).
 class Const(ZObject):
     def __init__(self, parent, name, typ, value):
         self.value = value
         self.eval = False
         super().__init__(parent, name, typ)
-
-
 class TypeName(ZObject):
+    """
+    Represent a type declaration
+    int, string, ...
+    Human, Animal, Person, ...
+    Attributes:
+        None
+    Methods:
+        None
+    """
+
     pass
 
 
@@ -299,10 +281,9 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     def __init__(self, ast):
         self.ast = ast
+        self.universe_scope = new_scope(parent=None)
         #==================================
-        # it seems that this is the same as
-        # Scope/Object/Type-like structure
-        # The checker in Go
+        # UNIVERSE SCOPE SETTINGS
         #==================================
 
 
@@ -312,16 +293,19 @@ class StaticChecker(BaseVisitor,Utils):
     def check(self):
         # can I do this multiple times?
         # YES :)
+
+        # testing
+        # a : int = 100
+        # if isinstance(a, int):
+        #     print('a is an int')
+        # return
+
         #==================================
         # DECLARATION PASS
         #==================================
         # universe_scope is used for built-in things
         # global_scope is used for package
-        universe_scope = new_scope(parent=None)
-        #==================================
-        # UNIVERSE SCOPE SETTINGS
-        #==================================
-        global_scope = new_scope(parent=universe_scope)
+        global_scope = new_scope(parent=self.universe_scope)
 
         parameters = {
             'pass' : 1,
@@ -338,7 +322,8 @@ class StaticChecker(BaseVisitor,Utils):
         global_scope.refresh_global()
         parameters = {
             'pass' : 2,
-            'global_scope' : global_scope
+            'global_scope' : global_scope,
+            'scope' : global_scope
         }
         self.visit(self.ast, param=parameters)
         return
@@ -389,7 +374,7 @@ class StaticChecker(BaseVisitor,Utils):
             return
         
         elif pass_num == 2:
-            global_scope.look_up(name).set_declared()
+            global_scope.resolve(name).set_declared()
             pass
 
         else:
@@ -417,7 +402,7 @@ class StaticChecker(BaseVisitor,Utils):
         pass_num = param['pass']
         name = ast.conName
         global_scope = param['global_scope']
-        expr = self.iniExpr
+        expr = ast.iniExpr
 
         if pass_num == 1:
             if global_scope.look_up(name) is not None:
@@ -468,31 +453,131 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     # TYPE CHECKING HAPPENING
     #==================================
+    '''
+    Type = *Basic       O [int, string, ...]
+        | *Array        O [[4]int, [1]float]
+        | *Struct       O 
+        | *Signature    O 
+        | *Named        O 
+        | *Interface    O 
+    '''
+
+
+    class Operator(Enum):
+        ADD     = '+'
+        SUB     = '-'
+        MUL     = '*'
+        DIV     = '/'
+        MOD     = '%'
+        EQ      = '=='
+        NEQ     = '!='
+        LT      = '<'
+        GT      = '>'
+        LTE     = '<='
+        GTE     = '>='
+        NOT     = '!'
+        AND     = '&&'
+        OR      = '||'
+
+
     def visitBinaryOp(self, ast, param):
         return None
     
     
     def visitUnaryOp(self, ast, param):
-        return None
+        '''
+        Expression context
+        '''
+        op = ast.op
+        expr = ast.body
+        typ = None
+
+        # in the case it is an ast.Ident, we would need
+        # it to resolve to [Var, Const] not [TypeName, Func]
+        if isinstance(expr, Id):
+            typ = self.id_helper(expr, param=param)
+        else:
+            typ = self.visit(expr, param=param)
+
+        # type checking
+        if op == StaticChecker.Operator.NOT.value:
+            # !
+            boolean_type = Basic(kind=BasicKind.BOOL)
+            if not identical(typ, boolean_type):
+                raise TypeMismatch(ast)
+            return boolean_type
+        elif op == StaticChecker.Operator.SUB.value:
+            # -
+            int_type = Basic(kind=BasicKind.INT)
+            float_type = Basic(kind=BasicKind.FLOAT)
+            if not (identical(typ, int_type) or identical(typ, float_type)):
+                raise TypeMismatch(ast)
+            return typ
+
+
+    def id_helper(self, ast, param):
+        # visit the Id node -> resolve to Object
+        obj = self.visit(ast=ast, param=param)
+        if obj is None:
+            # faild to resolve
+            raise Undeclared(k=Identifier(), n=ast.name)
+        elif isinstance(obj, (TypeName, Func)):
+            '''
+            Type checking error: ./tests/9.test:18:18: Human (type) is not an expression
+            exit status 1
+
+            Type checking error: ./tests/9.test:18:18: invalid operation: operator - not defined on doSomething (value of type func())
+            exit status 1
+            '''
+            # resolve to weird things
+            # SOS, may be NOT HAPPEN
+            pass
+        elif isinstance(obj, (Var, Const)):
+            # correctly resolve
+            typ = obj.type
+            return typ
     
 
     def visitIntLiteral(self, ast, param):
-        return None
+        value = ast.value
+
+        typ = Basic(kind=BasicKind.INT)
+        return typ
     
     
     def visitFloatLiteral(self, ast, param):
-        return None
+        value = ast.value
+
+        typ = Basic(kind=BasicKind.FLOAT)
+        return typ
     
     
     def visitBooleanLiteral(self, ast, param):
-        return None
-    
-    
-    def visitStringLiteral(self, ast, param):
-        return None
+        value = ast.value
+
+        typ = Basic(kind=BasicKind.BOOL)
+        return typ
     
 
+    def visitStringLiteral(self, ast, param):
+        value = ast.value
+
+        typ = Basic(kind=BasicKind.STRING)
+        return typ
+
+
     def visitArrayLiteral(self, ast, param):
+        '''
+        var arr [SIZE][SIZE][SIZE]int = [SIZE][SIZE][SIZE]int{1, 2, 3}
+        '''
+        # possible errors
+        # generically recursive
+        # SIZE is not int type (others)                         NOT HAPPEN
+        # SIZE is not constant (not evaluale at compile time)   NOT HAPPEN
+        # elements have different types with type               NOT HAPPEN
+        dimens = ast.dimens
+        eleType = ast.eleType
+        value = ast.value   # may be used to check for type NOT HAPPEN
         return None
     
 
@@ -552,27 +637,43 @@ class StaticChecker(BaseVisitor,Utils):
             
             # After type checking
             # Return the type back
-            # Allow pointer
+            # Allow pointer comparison
             return typ
-    
+
 
     def visitNilLiteral(self, ast, param):
         return None
     
 
+    #==================================
+    # DIFFERENTIATE BETWEEN expr and stmt
+    #==================================
     def visitFuncCall(self, ast, param):
+        # funcName must be resolve to be 
+        # Func object
+        # Check for Signature and args type
+        funcName = ast.funName
+        args = ast.args
         return None
     
 
     def visitMethCall(self, ast, param):
+        reveicer = ast.receiver
+        metName = ast.metName
+        args = ast.args
         return None
     
 
     def visitArrayCell(self, ast, param):
+        # no need to check for dimention and size mismatch
+        arr = ast.arr
+        idx = ast.idx
         return None
     
 
     def visitFieldAccess(self, ast, param):
+        receiver = ast.receiver
+        field = ast.field
         return None
     
 
@@ -583,7 +684,6 @@ class StaticChecker(BaseVisitor,Utils):
         | *TypeName     O - represent a typename (Human, Computer)
     '''
     def visitId(self, ast, param):
-        # pass_num = param['pass']
         name = ast.name
         scope = param['scope']
 

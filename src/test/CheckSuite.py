@@ -241,18 +241,31 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            name string
+            name int
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.FIELD, 'name')
         self.assertTrue(TestChecker.test(input,expect,412))
 
     def test_413(self):
         input = \
         '''
+        type Animal struct {
+            animalType string
+            name string
+            age int
+            sons [4]int
+            name string
+        }
+
         func main() {
             var a int = 100
         }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.FIELD, 'name')
         self.assertTrue(TestChecker.test(input,expect,413))
 
     def test_414(self):
