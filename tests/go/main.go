@@ -1,12 +1,12 @@
 package main
 
 func main() {
-
+	var h Human = Human{name: "", age: 1, float: 100}
+	println(h.float)
 }
 
-const h = Human{name: "string", age: 8}
-
 type Human struct {
-	name string
-	age  int8
+	name  string
+	age   int8
+	float float32
 }

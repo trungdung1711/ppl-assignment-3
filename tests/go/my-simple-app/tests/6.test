@@ -1,11 +1,14 @@
 package main
 
-type Human struct {
-    name string
+
+func (h *Human) name(a string, b float, c int, a string) {
+
 }
 
-func (h *Human) name(a string) {
-
+type Human struct {
+    name string
+    age float
+    son int
 }
 
 func main() {
