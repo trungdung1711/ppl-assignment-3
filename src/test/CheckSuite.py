@@ -19,6 +19,14 @@ class ErrorKind(Enum):
 def redeclared(kind: ErrorKind, name: str) -> str:
     return f'Redeclared {kind.value}: {name}' + '\n'
 
+
+def type_mismatch(ast) -> str:
+    return f'Type Mismatch: {str(ast)}\n'
+
+
+def undeclared(kind : ErrorKind, name : str) -> str:
+    return f'Undeclared {kind.value}: {name}\n'
+
 class CheckSuite(unittest.TestCase):
 
 
@@ -294,9 +302,15 @@ class CheckSuite(unittest.TestCase):
             var a int = 100
         }
 
-        const ERROR = "This will cause" + 100
+        const ERROR = "a" + 100
         '''
-        expect = 'Type Mismatch: BinaryOp(StringLiteral("This will cause"),+,IntLiteral(100))\n'
+        expect = type_mismatch(
+            BinaryOp(
+                '+',
+                StringLiteral('"a"'),
+                IntLiteral(100)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,415))
 
     def test_416(self):
@@ -305,8 +319,21 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const SIZE = 1 + 1
+        const PI = 3.14 + SIZE
+        const TRUE = true && false
+
+        const ERROR = 100 * false
+
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '*',
+                IntLiteral(100),
+                BooleanLiteral(False)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,416))
 
     def test_417(self):
@@ -314,6 +341,15 @@ class CheckSuite(unittest.TestCase):
         '''
         func main() {
             var a int = 100
+        }
+
+        const array = 4
+
+        type Animal struct {
+            a int
+            b float
+            c string
+            d [array]Animal
         }
         '''
         expect = ''
@@ -325,6 +361,15 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const SIZE = 12
+
+        type Animal struct {
+            a int
+            b string
+            c Animal
+            d [SIZE][2][3][4][5]Animal
+        }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,418))
@@ -335,8 +380,10 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const SIZE = A * 100 - 200 + 500 / 100
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.IDENTIFIER, 'A')
         self.assertTrue(TestChecker.test(input,expect,419))
 
     def test_420(self):
@@ -345,8 +392,10 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const NUM = 100 / SIZE
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.IDENTIFIER, 'SIZE')
         self.assertTrue(TestChecker.test(input,expect,420))
 
     def test_421(self):
@@ -354,6 +403,18 @@ class CheckSuite(unittest.TestCase):
         '''
         func main() {
             var a int = 100
+        }
+
+        const SIZE = 100
+
+        type Dog struct {
+            name string
+            age int
+        }
+
+        type Animal interface {
+            eat(a int) [SIZE]Dog
+            attack(d Dog) float
         }
         '''
         expect = ''
@@ -365,8 +426,15 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Animal interface {
+            getName() string
+            getAge() int
+            setName(name string)
+            getName()
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.PROTOTYPE, 'getName')
         self.assertTrue(TestChecker.test(input,expect,422))
 
     def test_423(self):
@@ -375,8 +443,23 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const NUM = 30
+
+        type Key struct {
+            name string
+        }
+
+        type KeyBoard struct {
+            keys [NUM]Key
+        }
+
+        type Computer interface {
+            getKeyBoard() KeyBoard
+            getKeyBoard() [NUM]Key
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.PROTOTYPE, 'getKeyBoard')
         self.assertTrue(TestChecker.test(input,expect,423))
 
     def test_424(self):

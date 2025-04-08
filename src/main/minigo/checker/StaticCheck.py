@@ -97,6 +97,13 @@ class Named(ZType):
 
     def add_field(self, field):
         self.fields.append(field)
+class Interface(ZType):
+    def __init__(self):
+        self.methods    = [] # List[Func]
+
+
+    def add_method(self, method):
+        self.methods.append(method)
 
 
 def identical(t1 : ZType, t2 : ZType) -> bool:
@@ -474,7 +481,6 @@ class StaticChecker(BaseVisitor,Utils):
     '''
     Type = *Basic       O [int, string, ...]
         | *Array        O [[4]int, [1]float]
-        | *Struct       O 
         | *Signature    O 
         | *Named        O 
         | *Interface    O 
@@ -987,6 +993,7 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     
    
+    # pass 3, along with MethodDecl
     def visitFuncDecl(self, ast, param):
         pass_num = param['pass']
 
@@ -1068,16 +1075,14 @@ class StaticChecker(BaseVisitor,Utils):
                     elif isinstance(obj, TypeName):
                         field_typ = obj.type
                 
-                elif isinstance(field_type, ArrayType):
-                    field_typ = self.visit(field_type, parameters)
-
                 else:
                     # normal type
                     # should change because this is different from Id
                     # should be unified
                     # IntType()
                     # StringType()
-                    field_typ = self.visit(field_type, parameters).type
+                    # ArrayType()
+                    field_typ = self.visit(field_type, parameters)
 
                 new_field = Var(parent=obj, name=name, typ=field_typ, is_field=True)
                 obj.type.add_field(new_field)
@@ -1106,26 +1111,26 @@ class StaticChecker(BaseVisitor,Utils):
             Type: Type in Scope/Object/Type system
         """
         typ = Basic(kind=BasicKind.INT)
-        obj = TypeName(None, 'int', typ)
-        return obj
+        # obj = TypeName(None, 'int', typ)
+        return typ
 
     
     def visitFloatType(self, ast, param):
         typ = Basic(kind=BasicKind.FLOAT)
-        obj = TypeName(None, 'float', typ)
-        return obj
+        # obj = TypeName(None, 'float', typ)
+        return typ
     
     
     def visitBoolType(self, ast, param):
         typ = Basic(kind=BasicKind.BOOL)
-        obj = TypeName(None, 'boolean', typ)
-        return obj
+        # obj = TypeName(None, 'boolean', typ)
+        return typ
 
     
     def visitStringType(self, ast, param):
         typ = Basic(kind=BasicKind.STRING)
-        obj = TypeName(None, 'string', typ)
-        return obj
+        # obj = TypeName(None, 'string', typ)
+        return typ
 
 
     def visitArrayType(self, ast, param):
@@ -1200,17 +1205,43 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     # Used for function
-    def visitVoidType(self, param):
+    def visitVoidType(self, ast, param):
         return None
+    
+
+    def visit_type(self, ast, param):
+        if isinstance(ast, Id):
+            # Resolve
+            obj = self.visit(ast, param)
+
+            if obj is None:
+                # SOS NOT HAPPEN
+                pass
+            
+            if isinstance(obj, (Var, Const, Func)):
+                # SIS NOT HAPPEN
+                pass
+
+            if isinstance(obj, TypeName):
+                # correct
+                return obj.type
+        else:
+            # IntType
+            # StringType
+            # BoolType
+            # FloatType
+            # ArrayType
+            return self.visit(ast, param)
 
 
     def visitInterfaceType(self, ast, param):
         pass_num = param['pass']
+        name = ast.name
+        methods = ast.methods
 
         if pass_num == 1:
             global_scope = param['global_scope']
 
-            name = ast.name
             if global_scope.look_up(name) is not None:
                 raise Redeclared(k=Type(), n=name)
             else:
@@ -1219,15 +1250,71 @@ class StaticChecker(BaseVisitor,Utils):
             return
         
         elif pass_num == 2:
+            scope = param['scope']
             # TODO:
             # - check for prototypes redeclared
             # - create Type of Object
-            pass
+            # - Create Func object, Signature for it
+            # - Add it to the Interface Type of
+            # - The TypeName object
+
+            # look up the object again -> TypeName
+            obj = scope.look_up(name)
+            # create the type of it
+            # check for redeclared prototype
+            test = []
+            for method in methods:
+                if method.name in test:
+                    raise Redeclared(k=Prototype(), n=method.name)
+                else:
+                    test.append(method.name)
+
+            # already check
+            typ = Interface()
+
+            for method in methods:
+                func = self.visit(method, param)
+                typ.add_method(func)
+
+            return
 
         else:
             pass
 
 
+    def visitPrototype(self, ast, param):
+        name = ast.name
+        params = ast.params
+        retType = ast.retType
+
+        # create a Func Object
+        # create a Synature
+        # a Signature would contain Var
+        # receive is None
+        method_var_list = []
+
+        for method_param in params:
+            param_type = self.visit_type(method_param, param)
+            var = Var(None, 'A', param_type, False)
+            method_var_list.append(var)
+
+        # create the return type
+        return_var_type = self.visit_type(retType, param)
+
+        if return_var_type is None:
+            return_var = None
+        else:
+            return_var = Var(None, 'A', return_var_type, False)
+
+        signature = Signature(None, method_var_list, return_var)
+
+        # Create this Func Object
+        # with Signature
+        func = Func(None, name, signature)
+        return func
+
+
+    # pass 3, after all fields
     def visitMethodDecl(self, ast, param):
         pass_num = param['pass']
 
@@ -1243,10 +1330,6 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitParamDecl(self, ast, param):
-        return None
-
-
-    def visitPrototype(self, param):
         return None
 
 
