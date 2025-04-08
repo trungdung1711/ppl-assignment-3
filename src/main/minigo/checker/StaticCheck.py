@@ -98,10 +98,26 @@ class Named(ZType):
 def identical(t1 : ZType, t2 : ZType) -> bool:
     if t1 is t2:
         return True
+    
     elif type(t1) != type(t2):
         return False
+    
     elif isinstance(t1, Basic) and isinstance(t2, Basic):
         return t1.kind == t2.kind
+    
+    elif isinstance(t1, Array) and isinstance(t2, Array):
+        # SOS
+        pass
+    elif isinstance(t1, Signature) and isinstance(t2, Signature):
+        # SOS
+        # not happen
+        # resolving ID
+        pass
+    elif isinstance(t1, Named) and isinstance(t2, Named):
+        # SOS
+        # not happen
+        # resolving ID
+        pass
     else:
         return False
 
@@ -188,7 +204,7 @@ class ZScope:
     def resolve(self, name):
         """Used internally to set declared and set undeclared
         for look_up to work, resolve to name if it exists, no
-        matter where it is declared
+        matter where it is declared, used by global scope only
 
         Args:
             name (str): name to resolve
@@ -414,6 +430,7 @@ class StaticChecker(BaseVisitor,Utils):
 
         elif pass_num == 2:
             # look up will find it
+            # GLOBAL SCOPE
             scope = param['scope']
             obj = scope.resolve(name)
             obj.set_declared()
@@ -421,6 +438,12 @@ class StaticChecker(BaseVisitor,Utils):
             # TODO: must resolve the value and the type
             # if it is RESOLVABLE
             # calculate value and type -> type mismatch
+
+            # resolve the type, do we need that?
+            # or skip and resolve the type in pass 3
+            # should be in pass 3
+            # only calculate the value of int
+            # which is used for SIZE in array
 
             if isinstance(expr, (StructLiteral, ArrayLiteral)):
                 # skip for now, don't calculate
@@ -481,42 +504,153 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitBinaryOp(self, ast, param):
-        return None
-    
-    
+        '''
+        Expression context
+        '''
+        op = ast.op
+        X = ast.left
+        Y = ast.right
+        type_X = None
+        type_Y = None
+
+        # first guard -> Object is not [Const, Var] but [TypeName, Func]
+        if isinstance(X, Id):
+            type_X = self.id_helper(ast=X, param=param)
+        else:
+            type_X = self.visit(X, param)
+
+        if isinstance(Y, Id):
+            type_Y = self.id_helper(ast=Y, param=param)
+        else:
+            type_Y = self.visit(Y, param)
+
+        # type checking
+        int_type        = Basic(kind=BasicKind.INT)
+        float_type      = Basic(kind=BasicKind.FLOAT)
+        string_type     = Basic(kind=BasicKind.STRING)
+        boolean_type    = Basic(kind=BasicKind.BOOL)
+        if op == StaticChecker.Operator.ADD.value:
+            # +
+            if identical(type_X, int_type) and identical(type_Y, int_type):
+                # both int type
+                return int_type
+            elif identical(type_X, float_type) and identical(type_Y, float_type):
+                # both float type
+                return float_type
+            elif identical(type_X, string_type) and identical(type_Y, string_type):
+                # both string type
+                return string_type
+            
+            elif (identical(type_X, int_type) and identical(type_Y, float_type)) \
+                or (identical(type_Y, int_type) and identical(type_X, float_type)):
+                # one is float and one is int -> coercion
+                # specification, at run time -> change from int to float
+                return float_type
+            
+            else:
+                raise TypeMismatch(ast)
+
+        elif op == StaticChecker.Operator.SUB.value or \
+             op == StaticChecker.Operator.MUL.value or \
+             op == StaticChecker.Operator.DIV.value:
+            # -, *, /
+            if identical(type_X, int_type) and identical(type_Y, int_type):
+                # both int type
+                return int_type
+            elif identical(type_X, float_type) and identical(type_Y, float_type):
+                # both float type
+                return float_type
+            
+            elif (identical(type_X, int_type) and identical(type_Y, float_type)) \
+                or (identical(type_Y, int_type) and identical(type_X, float_type)):
+                # one is float and one is int -> coercion
+                # specification, at run time -> change from int to float
+                return float_type
+            
+            else:
+                raise TypeMismatch(ast)
+            
+        elif op == StaticChecker.Operator.MOD.value:
+            # %
+            if identical(type_X, int_type) and identical(type_Y, int_type):
+                return int_type
+            
+            else:
+                raise TypeMismatch(ast)
+
+        elif op == StaticChecker.Operator.EQ.value or \
+             op == StaticChecker.Operator.NEQ.value or \
+             op == StaticChecker.Operator.GT.value or \
+             op == StaticChecker.Operator.LT.value or \
+             op == StaticChecker.Operator.GTE.value or \
+             op == StaticChecker.Operator.LTE.value:
+            # ==, !=, >, <, >=, <=
+            if identical(type_X, int_type) and identical(type_Y, int_type):
+                # both int type
+                return boolean_type
+            elif identical(type_X, float_type) and identical(type_Y, float_type):
+                # both float type
+                return boolean_type
+            elif identical(type_X, string_type) and identical(type_Y, string_type):
+                # both string type
+                return boolean_type
+            
+            else:
+                raise TypeMismatch(ast)
+            
+        elif op == StaticChecker.Operator.AND.value or \
+             op == StaticChecker.Operator.OR.value:
+            # &&, ||
+            if identical(type_X, boolean_type) and identical(type_Y, boolean_type):
+                # both boolean type
+                return boolean_type
+            
+            else:
+                raise TypeMismatch(ast)
+            
+        else:
+            # SOS
+            pass
+
+
     def visitUnaryOp(self, ast, param):
         '''
         Expression context
         '''
         op = ast.op
-        expr = ast.body
-        typ = None
+        X = ast.body
+        type_X = None
 
-        # in the case it is an ast.Ident, we would need
-        # it to resolve to [Var, Const] not [TypeName, Func]
-        if isinstance(expr, Id):
-            typ = self.id_helper(expr, param=param)
+        # first guard from [TypeName], [Func]
+        if isinstance(X, Id):
+            type_X = self.id_helper(X, param)
         else:
-            typ = self.visit(expr, param=param)
+            type_X = self.visit(X, param)
 
         # type checking
+        int_type = Basic(kind=BasicKind.INT)
+        float_type = Basic(kind=BasicKind.FLOAT)
+        boolean_type = Basic(kind=BasicKind.BOOL)
+
         if op == StaticChecker.Operator.NOT.value:
             # !
-            boolean_type = Basic(kind=BasicKind.BOOL)
-            if not identical(typ, boolean_type):
+            if identical(type_X, boolean_type):
+                return boolean_type
+            
+            else:
                 raise TypeMismatch(ast)
-            return boolean_type
         elif op == StaticChecker.Operator.SUB.value:
             # -
-            int_type = Basic(kind=BasicKind.INT)
-            float_type = Basic(kind=BasicKind.FLOAT)
-            if not (identical(typ, int_type) or identical(typ, float_type)):
+            if identical(type_X, int_type) or identical(type_X, float_type):
+                return type_X
+            
+            else:
                 raise TypeMismatch(ast)
-            return typ
 
 
     def id_helper(self, ast, param):
-        # visit the Id node -> resolve to Object
+        # visit the Id node -> resolve to [Object]
+        # current scope
         obj = self.visit(ast=ast, param=param)
         if obj is None:
             # faild to resolve
@@ -534,36 +668,32 @@ class StaticChecker(BaseVisitor,Utils):
             pass
         elif isinstance(obj, (Var, Const)):
             # correctly resolve
-            typ = obj.type
-            return typ
-    
+            # get the type and return
+            return obj.type
+
 
     def visitIntLiteral(self, ast, param):
         value = ast.value
 
-        typ = Basic(kind=BasicKind.INT)
-        return typ
+        return Basic(kind=BasicKind.INT)
     
     
     def visitFloatLiteral(self, ast, param):
         value = ast.value
 
-        typ = Basic(kind=BasicKind.FLOAT)
-        return typ
+        return Basic(kind=BasicKind.FLOAT)
     
     
     def visitBooleanLiteral(self, ast, param):
         value = ast.value
 
-        typ = Basic(kind=BasicKind.BOOL)
-        return typ
+        return Basic(kind=BasicKind.BOOL)
     
 
     def visitStringLiteral(self, ast, param):
         value = ast.value
 
-        typ = Basic(kind=BasicKind.STRING)
-        return typ
+        return Basic(kind=BasicKind.STRING)
 
 
     def visitArrayLiteral(self, ast, param):
