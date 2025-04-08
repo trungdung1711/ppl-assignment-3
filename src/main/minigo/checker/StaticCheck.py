@@ -93,6 +93,10 @@ class Named(ZType):
     def has_field(self, name : str):
         fields_name = map(lambda var: var.name, self.fields)
         return (name in fields_name)
+    
+
+    def add_field(self, field):
+        self.fields.append(field)
 
 
 def identical(t1 : ZType, t2 : ZType) -> bool:
@@ -432,43 +436,34 @@ class StaticChecker(BaseVisitor,Utils):
             # look up will find it
             # GLOBAL SCOPE
             scope = param['scope']
+
+            # enable this object to be found 
+            # by look_up
             obj = scope.resolve(name)
             obj.set_declared()
-            # now using look_up, we can find it
-            # TODO: must resolve the value and the type
-            # if it is RESOLVABLE
-            # calculate value and type -> type mismatch
 
-            # resolve the type, do we need that?
-            # or skip and resolve the type in pass 3
-            # should be in pass 3
-            # only calculate the value of int
-            # which is used for SIZE in array
+            # Case: StructLiteral -> Named type [object]
+            # Case: ArrayLiteral  -> Array [created]
 
-            if isinstance(expr, (StructLiteral, ArrayLiteral)):
-                # skip for now, don't calculate
-                pass
+            # Case: Id -> return Object, not Type
+            # Other case -> return Type
+            if isinstance(expr, Id):
+                typ = self.id_helper(expr, param)
             else:
-                # TODO:
-                # can be calculated at compile time
-                # calculate and type check -> get the Type and
-                # also the value
-                # assign, note that we ensure that the
-                # contain only Id (Const) and IntLiteral
-                # expression -> Id -> Check for Type
-                # in Go -> Reject weird in expression
-                # must get the type and the value
-                # type checking
+                typ = self.visit(expr, param)
+
+            if isinstance(typ, (Basic)):
+                # evaluate value
                 parameters = {
-                    'scope': scope
+                    'pass' : 99,
+                    'scope' : scope
                 }
 
-                # in this pass, we know that it can be calcualted
-                # in general case -> should return a type
-                # and then we can calculate it later on?
-                typ = self.visit(ast=expr, param=parameters)
-                pass
-
+                value = self.visit(expr, parameters)
+                obj.set_type(typ)
+                obj.value = value
+            return
+        
         else:
             pass
 
@@ -512,6 +507,47 @@ class StaticChecker(BaseVisitor,Utils):
         Y = ast.right
         type_X = None
         type_Y = None
+        pass_num = param['pass']
+
+        if pass_num == 99:
+            # type checking is done
+            if isinstance(X, Id):
+                value_X = self.id_helper(ast=X, param=param)
+            else:
+                value_X = self.visit(X, param)
+
+            if isinstance(Y, Id):
+                value_Y = self.id_helper(ast=Y, param=param)
+            else:
+                value_Y = self.visit(Y, param)
+
+            if op == StaticChecker.Operator.ADD.value:
+                return value_X + value_Y
+            elif op == StaticChecker.Operator.SUB.value:
+                return value_X - value_Y
+            elif op == StaticChecker.Operator.MUL.value:
+                return value_X * value_Y
+            elif op == StaticChecker.Operator.DIV.value:
+                return value_X / value_Y
+            elif op == StaticChecker.Operator.MOD.value:
+                return value_X % value_Y
+            elif op == StaticChecker.Operator.EQ.value:
+                return value_X == value_Y
+            elif op == StaticChecker.Operator.NEQ.value:
+                return value_X != value_Y
+            elif op == StaticChecker.Operator.LT.value:
+                return value_X < value_Y
+            elif op == StaticChecker.Operator.GT.value:
+                return value_X > value_Y
+            elif op == StaticChecker.Operator.LTE.value:
+                return value_X <= value_Y
+            elif op == StaticChecker.Operator.GTE.value:
+                return value_X >= value_Y
+            elif op == StaticChecker.Operator.AND.value:
+                return value_X and value_Y
+            elif op == StaticChecker.Operator.OR.value:
+                return value_X or value_Y
+
 
         # first guard -> Object is not [Const, Var] but [TypeName, Func]
         if isinstance(X, Id):
@@ -620,6 +656,20 @@ class StaticChecker(BaseVisitor,Utils):
         op = ast.op
         X = ast.body
         type_X = None
+        pass_num = param['pass']
+
+        if pass_num == 99:
+            # type is finish, just evaluation
+            # For literal, it is OK
+            # But for Id -> break
+            if isinstance(X, Id):
+                value_X = self.id_helper(X, param)
+            else:
+                value_X = self.visit(X, param)
+            if op == StaticChecker.Operator.NOT.value:
+                return not value_X
+            elif op == StaticChecker.Operator.SUB.value:
+                return - value_X
 
         # first guard from [TypeName], [Func]
         if isinstance(X, Id):
@@ -648,9 +698,52 @@ class StaticChecker(BaseVisitor,Utils):
                 raise TypeMismatch(ast)
 
 
+    def visit_expression(self, ast, param):
+        pass_num = param['pass']
+        if pass_num == 99:
+            # evaluation
+            if isinstance(ast, Id):
+                pass
+            return
+
+        # type checking
+        if isinstance(ast, Id):
+            # visit the Id node -> resolve to [Object]
+            # current scope
+            obj = self.visit(ast, param)
+            if obj is None:
+                # faild to resolve
+                raise Undeclared(k=Identifier(), n=ast.name)
+            
+            elif isinstance(obj, (TypeName, Func)):
+                '''
+                Type checking error: ./tests/9.test:18:18: Human (type) is not an expression
+                exit status 1
+
+                Type checking error: ./tests/9.test:18:18: invalid operation: operator - not defined on doSomething (value of type func())
+                exit status 1
+                '''
+                # resolve to weird things
+                # SOS, may be NOT HAPPEN
+                pass
+            elif isinstance(obj, (Var, Const)):
+                # correctly resolve
+                # get the type and return
+                return obj.type
+        else:
+            return self.visit(ast, param)
+
+
     def id_helper(self, ast, param):
         # visit the Id node -> resolve to [Object]
         # current scope
+        pass_num = param['pass']
+        if pass_num == 99:
+            # type checking is done
+            # So it is OK
+            obj = self.visit(ast, param)
+            return obj.value
+
         obj = self.visit(ast=ast, param=param)
         if obj is None:
             # faild to resolve
@@ -673,25 +766,37 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitIntLiteral(self, ast, param):
-        value = ast.value
+        pass_num = param['pass']
+
+        if pass_num == 99:
+            return int(ast.value)
 
         return Basic(kind=BasicKind.INT)
     
     
     def visitFloatLiteral(self, ast, param):
-        value = ast.value
+        pass_num = param['pass']
+
+        if pass_num == 99:
+            return float(ast.value)
 
         return Basic(kind=BasicKind.FLOAT)
     
     
     def visitBooleanLiteral(self, ast, param):
-        value = ast.value
+        pass_num = param['pass']
+        
+        if pass_num == 99:
+            return bool(ast.value)
 
         return Basic(kind=BasicKind.BOOL)
     
 
     def visitStringLiteral(self, ast, param):
-        value = ast.value
+        pass_num = param['pass']
+        
+        if pass_num == 99:
+            return str(ast.value)
 
         return Basic(kind=BasicKind.STRING)
 
@@ -705,10 +810,65 @@ class StaticChecker(BaseVisitor,Utils):
         # SIZE is not int type (others)                         NOT HAPPEN
         # SIZE is not constant (not evaluale at compile time)   NOT HAPPEN
         # elements have different types with type               NOT HAPPEN
+        # MUST CACULATE THE SIZE AND RETURN THE Array back
         dimens = ast.dimens
         eleType = ast.eleType
         value = ast.value   # may be used to check for type NOT HAPPEN
-        return None
+
+        # SIZE is always IntLiteral and Const (resolve)
+
+        size = []
+        for expr in dimens:
+            if isinstance(expr, Id):
+                typ = self.id_helper(expr, param)
+                parameters = {
+                    'pass' : 99,
+                    'scope' : param['scope']
+                }
+                if isinstance(typ, (Array, Named)):
+                    # SOS
+                    pass
+                value = self.id_helper(expr, param)
+                size.append(value)
+
+            else:
+                # case IntLiteral
+                parameters = {
+                    'pass' : 99,
+                    'scope' : param['scope']
+                }
+                value = self.visit(expr, parameters)
+                size.append(value)
+        
+        # for the type
+        # not the array, but can be IntType, FloatType
+        # StringType, BoolType, Id
+        if isinstance(eleType, Id):
+            obj = self.visit(eleType, param)
+            if obj is None:
+                # undeclared type. NOT HAPPEN
+                pass
+            if isinstance(obj, (Var, Const, Func)):
+                # NOT HAPPEN
+                pass
+            if isinstance(obj, TypeName):
+                # correct, can be Named or Interface
+                # Getting the type
+                typ = obj.type
+        else:
+            # other case rather than Id
+            obj = self.visit(eleType, param)
+            typ = obj.type
+        
+        # no need to check for the values inside the
+        # array literal, just calculate the size and then
+        # return the new Array (Type)
+        # using reduce
+        # [1, 2, 3, 4] and a type
+        # [4, 3, 2, 1] and a type
+        # Array(1, Array(2, Array(3, Array(4, type))))
+        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), size.reversed(), typ)
+        return array_type
     
 
     def visitStructLiteral(self, ast, param):
@@ -747,6 +907,7 @@ class StaticChecker(BaseVisitor,Utils):
         elif isinstance(obj, TypeName):
             # Found the correct Object
             # Get the type Named
+            # May be found interface
             typ = obj.type
             '''
             Type checking error: ./tests/8.test:5:45: unknown field <field> in struct literal of type <type>
@@ -765,9 +926,10 @@ class StaticChecker(BaseVisitor,Utils):
                     # NOT HAPPEN
                     pass
             
-            # After type checking
-            # Return the type back
-            # Allow pointer comparison
+            # The actual type object stored in
+            # TypeName object [fields, Methods]
+            # Identity comparison
+            # Allow for identity comparison, t1 == t2
             return typ
 
 
@@ -882,7 +1044,7 @@ class StaticChecker(BaseVisitor,Utils):
             # normal flow, no exception, adding to Type
             typ = Named()
             obj.set_type(typ)
-            for name, typ in ast.elements:
+            for name, field_type in ast.elements:
                 # we must get the name
                 # we must get the type
                 # scope would be the current scope
@@ -892,23 +1054,35 @@ class StaticChecker(BaseVisitor,Utils):
                     'pass' : 2,
                     'scope' : global_scope
                 }
-                field_type = self.visit(typ, param=parameters)
-                # checking to get the type from TypeName or Array
-                if isinstance(field_type, TypeName):
-                    # TODO:
-                    # get the type of Object
-                    # assign with Var
-                    pass
-                elif isinstance(field_type, Array):
-                    # TODO:
-                    # assign the type with Var
-                    pass
-            # create Var object with Type and add to this type
-            # for each of the fields -> get the Type
-            # by visit the Type?
-            # must create Var-Type and store that in Named
 
-            pass
+                field_typ = None
+
+                if isinstance(field_type, Id):
+                    obj = self.visit(field_type, parameters)
+                    if obj is None:
+                        # NOT HAPPEN
+                        pass
+                    elif isinstance(obj, (Func, Var, Const)):
+                        # NOT HAPPEN
+                        pass
+                    elif isinstance(obj, TypeName):
+                        field_typ = obj.type
+                
+                elif isinstance(field_type, ArrayType):
+                    field_typ = self.visit(field_type, parameters)
+
+                else:
+                    # normal type
+                    # should change because this is different from Id
+                    # should be unified
+                    # IntType()
+                    # StringType()
+                    field_typ = self.visit(field_type, parameters).type
+
+                new_field = Var(parent=obj, name=name, typ=field_typ, is_field=True)
+                obj.type.add_field(new_field)
+            
+            return
 
         else:
             pass
@@ -956,28 +1130,73 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitArrayType(self, ast, param):
         dimens = ast.dimens
-        typ = ast.eleType
+        eleType = ast.eleType
         # Used to get the const value
         scope = param['scope']
-        # must calculate all the const -> know the size
-        # visit the type to get the type [TypeName] object
-        # IntLiteral or ID -> can be calculated to value
-        # Can be IntLiteral -> value or Id -> Const -> Get value
-        # we have a list of expression -> must return 
-        # Array in a recursive way
-        # resolve to a list of size [1, 2, 3, 4, 5]
-        # reverse the list [5, 4, 3, 2, 1]
-        # resolve to the type -> TypeName or (Not Array)
-        # usign reduce
-        # reduce(lambda acc, cur : Array(cur, acc), list, type)
-        # return that one -> recursively defined array type
 
-        # now the problem is to calculate all the number
-        # because of the constraints -> All int, or Id
-        # must be resolve to an int -> no need to check
-        # for type mismatch
-        # then we would calculate all const in the ways
-        # then use LookUpParent to find that and have the len part
+        size = []
+        for expr in dimens:
+            if isinstance(expr, Id):
+                # ensure resolve to Const/Var
+                # assume always calcualted
+                # prevent weird Object
+                # but not prevent weird basic type
+                # like string, float, bool, Struct, Array
+                # SOS
+                typ = self.id_helper(expr, param)
+                parameters = {
+                    'pass' : 99,
+                    'scope' : param['scope']
+                }
+                if isinstance(typ, (Array, Named)):
+                    # SOS
+                    # NOT HAPPEN
+                    # ALWAYS RESOLVE TO CONST
+                    # FLOAT/STRING?
+                    # NOT HAPPEN
+                    pass
+                value = self.id_helper(expr, param)
+                size.append(value)
+
+            else:
+                # case IntLiteral
+                parameters = {
+                    'pass' : 99,
+                    'scope' : param['scope']
+                }
+                value = self.visit(expr, parameters)
+                size.append(value)
+        
+        # for the type
+        # not the array, but can be IntType, FloatType
+        # StringType, BoolType, Id
+        if isinstance(eleType, Id):
+            obj = self.visit(eleType, param)
+            if obj is None:
+                # undeclared type. NOT HAPPEN
+                pass
+            if isinstance(obj, (Var, Const, Func)):
+                # NOT HAPPEN
+                pass
+            if isinstance(obj, TypeName):
+                # correct, can be Named or Interface
+                # Getting the type
+                typ = obj.type
+        else:
+            # other case rather than Id
+            # IntType, StringType, BoolType -> TypeName
+            obj = self.visit(eleType, param)
+            typ = obj.type
+        
+        # no need to check for the values inside the
+        # array literal, just calculate the size and then
+        # return the new Array (Type)
+        # using reduce
+        # [1, 2, 3, 4] and a type
+        # [4, 3, 2, 1] and a type
+        # Array(1, Array(2, Array(3, Array(4, type))))
+        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), reversed(size), typ)
+        return array_type
 
 
     # Used for function

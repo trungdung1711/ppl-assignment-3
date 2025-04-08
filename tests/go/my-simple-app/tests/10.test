@@ -1,0 +1,13 @@
+package main
+
+
+func (h *Human) name() {
+
+}
+
+
+type Human struct {
+    name string
+    age int
+    name int
+}

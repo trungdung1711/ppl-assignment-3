@@ -274,8 +274,17 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const SIZE = 2 + 4 - 1
+        const SIZE_10 = SIZE * 2
+
+
+        type Human struct {
+            sons [SIZE_10]Human
+            sons [100]int
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.FIELD, 'sons')
         self.assertTrue(TestChecker.test(input,expect,414))
 
     def test_415(self):
@@ -284,8 +293,10 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const ERROR = "This will cause" + 100
         '''
-        expect = ''
+        expect = 'Type Mismatch: BinaryOp(StringLiteral("This will cause"),+,IntLiteral(100))\n'
         self.assertTrue(TestChecker.test(input,expect,415))
 
     def test_416(self):
