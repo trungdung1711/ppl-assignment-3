@@ -353,7 +353,19 @@ class StaticChecker(BaseVisitor,Utils):
             'scope' : global_scope
         }
         self.visit(self.ast, param=parameters)
-        return
+        
+    
+        #==================================
+        # THIRD PASS - FUNC collecting
+        #==================================
+        global_scope.refresh_global()
+        parameters = {
+            'pass' : 3,
+            'scope' : global_scope,
+            'global_scope' : global_scope
+        }
+        self.visit(self.ast, param=parameters)
+
 
 
     #==================================
@@ -368,6 +380,10 @@ class StaticChecker(BaseVisitor,Utils):
         
         elif pass_num == 2:
             # pass 2: collection pass
+            [self.visit(decl, param=param) for decl in ast.decl]
+
+        elif pass_num == 3:
+            # pass 3: function and method collection pass
             [self.visit(decl, param=param) for decl in ast.decl]
 
         else:
@@ -401,10 +417,13 @@ class StaticChecker(BaseVisitor,Utils):
             return
         
         elif pass_num == 2:
-            global_scope.resolve(name).set_declared()
+            scope = param['scope']
+            scope.resolve(name).set_declared()
             pass
 
-        else:
+        elif pass_num == 3:
+            scope = param['scope']
+            scope.resolve(name).set_declared()
             pass
     
 
@@ -471,6 +490,10 @@ class StaticChecker(BaseVisitor,Utils):
                 obj.value = value
             return
         
+        elif pass_num == 3:
+            scope = param['scope']
+            scope.resolve(name).set_declared()
+
         else:
             pass
 
@@ -740,6 +763,7 @@ class StaticChecker(BaseVisitor,Utils):
             return self.visit(ast, param)
 
 
+    # Used specifically for expression
     def id_helper(self, ast, param):
         # visit the Id node -> resolve to [Object]
         # current scope
@@ -849,22 +873,26 @@ class StaticChecker(BaseVisitor,Utils):
         # for the type
         # not the array, but can be IntType, FloatType
         # StringType, BoolType, Id
-        if isinstance(eleType, Id):
-            obj = self.visit(eleType, param)
-            if obj is None:
-                # undeclared type. NOT HAPPEN
-                pass
-            if isinstance(obj, (Var, Const, Func)):
-                # NOT HAPPEN
-                pass
-            if isinstance(obj, TypeName):
-                # correct, can be Named or Interface
-                # Getting the type
-                typ = obj.type
-        else:
-            # other case rather than Id
-            obj = self.visit(eleType, param)
-            typ = obj.type
+        # if isinstance(eleType, Id):
+        #     obj = self.visit(eleType, param)
+        #     if obj is None:
+        #         # undeclared type. NOT HAPPEN
+        #         pass
+        #     if isinstance(obj, (Var, Const, Func)):
+        #         # NOT HAPPEN
+        #         pass
+        #     if isinstance(obj, TypeName):
+        #         # correct, can be Named or Interface
+        #         # Getting the type
+        #         typ = obj.type
+        # else:
+        #     # other case rather than Id
+        #     obj = self.visit(eleType, param)
+        #     typ = obj.type
+
+        # handle for us, when the type is ID, and other cases
+        # only get the Type object
+        element_type = self.visit_type(eleType, param)
         
         # no need to check for the values inside the
         # array literal, just calculate the size and then
@@ -873,7 +901,7 @@ class StaticChecker(BaseVisitor,Utils):
         # [1, 2, 3, 4] and a type
         # [4, 3, 2, 1] and a type
         # Array(1, Array(2, Array(3, Array(4, type))))
-        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), size.reversed(), typ)
+        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), size.reversed(), element_type)
         return array_type
     
 
@@ -996,11 +1024,13 @@ class StaticChecker(BaseVisitor,Utils):
     # pass 3, along with MethodDecl
     def visitFuncDecl(self, ast, param):
         pass_num = param['pass']
+        name = ast.name
+        params = ast.params
+        retType = ast.retType
 
         if pass_num == 1:
             global_scope = param['global_scope']
 
-            name = ast.name
             if global_scope.look_up(name) is not None:
                 raise Redeclared(k=Function(), n=name)
             else:
@@ -1009,13 +1039,57 @@ class StaticChecker(BaseVisitor,Utils):
             return
 
         elif pass_num == 2:
-            # TODO: 
-            # - check for param redeclared
-            # - create Type of Object
             pass
+
+        elif pass_num == 3:
+            # create the signature for this function
+            # assign this signature to th obj
+            scope = param['scope']
+            obj = scope.look_up(name)
+
+            obj_type = Signature(None, [], None)
+            obj.set_type(obj_type)
+
+            # create Var object and store the type
+            # inside Signature
+            
+            # check for redeclared
+            test = []
+            for param_decl in params:
+                if param_decl.parName in test:
+                    raise Redeclared(k=Parameter(), n=param_decl.parName)
+                else:
+                    test.append(param_decl.parName)
+
+            # normal flow
+            # no redeclared
+            # create Var for each of them
+            # and then add them to Signature
+            for param_decl in params:
+                var = self.visit(param_decl, param)
+                obj_type.params.append(var)
+
+            # for the result
+            # VoidType -> None
+            # Other would be a type
+            result_type = self.visit_type(retType, param)
+            obj_type.result = result_type
 
         else:
             pass
+
+
+    def visitParamDecl(self, ast, param):
+        # TODO:
+        # - create Var - Type
+        parName = ast.parName
+        parType = ast.parType
+
+        var = Var(parent=None, name=parName, typ=None, is_field=False)
+
+        param_type = self.visit_type(parType, param)
+        var.set_type(param_type)
+        return var
 
 
     def visitStructType(self, ast, param):
@@ -1057,34 +1131,31 @@ class StaticChecker(BaseVisitor,Utils):
                 # scope would be the current scope
                 # allow us to resolve for Const of Array
                 # from point of declaration
-                parameters = {
-                    'pass' : 2,
-                    'scope' : global_scope
-                }
 
-                field_typ = None
+                field_typ = self.visit_type(field_type, param)
 
-                if isinstance(field_type, Id):
-                    obj = self.visit(field_type, parameters)
-                    if obj is None:
-                        # NOT HAPPEN
-                        pass
-                    elif isinstance(obj, (Func, Var, Const)):
-                        # NOT HAPPEN
-                        pass
-                    elif isinstance(obj, TypeName):
-                        field_typ = obj.type
+                # if isinstance(field_type, Id):
+                #     obj = self.visit(field_type, parameters)
+                #     if obj is None:
+                #         # NOT HAPPEN
+                #         pass
+                #     elif isinstance(obj, (Func, Var, Const)):
+                #         # NOT HAPPEN
+                #         pass
+                #     elif isinstance(obj, TypeName):
+                #         field_typ = obj.type
                 
-                else:
-                    # normal type
-                    # should change because this is different from Id
-                    # should be unified
-                    # IntType()
-                    # StringType()
-                    # ArrayType()
-                    field_typ = self.visit(field_type, parameters)
+                # else:
+                #     # normal type
+                #     # should change because this is different from Id
+                #     # should be unified
+                #     # IntType()
+                #     # StringType()
+                #     # ArrayType()
+                #     field_typ = self.visit(field_type, parameters)
 
-                new_field = Var(parent=obj, name=name, typ=field_typ, is_field=True)
+
+                new_field = Var(parent=None, name=name, typ=field_typ, is_field=True)
                 obj.type.add_field(new_field)
             
             return
@@ -1111,25 +1182,25 @@ class StaticChecker(BaseVisitor,Utils):
             Type: Type in Scope/Object/Type system
         """
         typ = Basic(kind=BasicKind.INT)
-        # obj = TypeName(None, 'int', typ)
+
         return typ
 
     
     def visitFloatType(self, ast, param):
         typ = Basic(kind=BasicKind.FLOAT)
-        # obj = TypeName(None, 'float', typ)
+
         return typ
     
     
     def visitBoolType(self, ast, param):
         typ = Basic(kind=BasicKind.BOOL)
-        # obj = TypeName(None, 'boolean', typ)
+
         return typ
 
     
     def visitStringType(self, ast, param):
         typ = Basic(kind=BasicKind.STRING)
-        # obj = TypeName(None, 'string', typ)
+
         return typ
 
 
@@ -1171,27 +1242,9 @@ class StaticChecker(BaseVisitor,Utils):
                 }
                 value = self.visit(expr, parameters)
                 size.append(value)
-        
-        # for the type
-        # not the array, but can be IntType, FloatType
-        # StringType, BoolType, Id
-        if isinstance(eleType, Id):
-            obj = self.visit(eleType, param)
-            if obj is None:
-                # undeclared type. NOT HAPPEN
-                pass
-            if isinstance(obj, (Var, Const, Func)):
-                # NOT HAPPEN
-                pass
-            if isinstance(obj, TypeName):
-                # correct, can be Named or Interface
-                # Getting the type
-                typ = obj.type
-        else:
-            # other case rather than Id
-            # IntType, StringType, BoolType -> TypeName
-            obj = self.visit(eleType, param)
-            typ = obj.type
+
+        # the element type ([][][]TYPE)
+        element_type = self.visit_type(eleType, param)
         
         # no need to check for the values inside the
         # array literal, just calculate the size and then
@@ -1200,7 +1253,7 @@ class StaticChecker(BaseVisitor,Utils):
         # [1, 2, 3, 4] and a type
         # [4, 3, 2, 1] and a type
         # Array(1, Array(2, Array(3, Array(4, type))))
-        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), reversed(size), typ)
+        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), reversed(size), element_type)
         return array_type
 
 
@@ -1301,6 +1354,8 @@ class StaticChecker(BaseVisitor,Utils):
         # create the return type
         return_var_type = self.visit_type(retType, param)
 
+
+        # VoidType handling
         if return_var_type is None:
             return_var = None
         else:
@@ -1322,15 +1377,7 @@ class StaticChecker(BaseVisitor,Utils):
             pass
 
         elif pass_num == 2:
-            # TODO: 
-            # check for method redeclared
-            # create Type for Object
-            # adding methods to struct
             pass
-
-
-    def visitParamDecl(self, ast, param):
-        return None
 
 
     def visitBlock(self, param):

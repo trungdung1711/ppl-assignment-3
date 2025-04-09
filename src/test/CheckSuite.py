@@ -468,8 +468,16 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const A = 10
+        const B = "string"
+        const C = F
+        const D = ""
+        const E = ""
+        const F = 5.6
+        const G = 1.2
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.IDENTIFIER, 'F')
         self.assertTrue(TestChecker.test(input,expect,424))
 
     def test_425(self):
@@ -478,8 +486,16 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        func add(a int, b int) int {
+            return a + b
+        }
+
+        func sub(a int, a int) int {
+            return a - b
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.PARAMETER, 'a')
         self.assertTrue(TestChecker.test(input,expect,425))
 
     def test_426(self):
@@ -488,8 +504,19 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            a int
+            b string
+            c Human
+            d [4]Human
+        }
+
+        func doSomething(h Human, h Human, i int) {
+            return h.a
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.PARAMETER, 'h')
         self.assertTrue(TestChecker.test(input,expect,426))
 
     def test_427(self):
