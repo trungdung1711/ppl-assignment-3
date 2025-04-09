@@ -525,8 +525,18 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            a int 
+            b [3]Human
+            c int
+        }
+
+        func (h Human) a(a int, b int) int {
+            return a + b
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.METHOD, 'a')
         self.assertTrue(TestChecker.test(input,expect,427))
 
     def test_428(self):
@@ -535,8 +545,23 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            a int
+            b float
+            c string
+            d [3]int
+        }
+
+        func (h Human) eat() int {
+            return 100
+        }
+
+        func (h Human) eat() float {
+            return 1.5
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.METHOD, 'eat')
         self.assertTrue(TestChecker.test(input,expect,428))
 
     def test_429(self):

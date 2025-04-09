@@ -97,6 +97,20 @@ class Named(ZType):
 
     def add_field(self, field):
         self.fields.append(field)
+
+
+    def add_method(self, method):
+        self.methods.append(method)
+
+
+    def has_name(self, name):
+        field_names = [field.name for field in self.fields]
+        method_names = [method.name for method in self.methods]
+
+        names = field_names + method_names
+        if name in names:
+            return True
+        return False
 class Interface(ZType):
     def __init__(self):
         self.methods    = [] # List[Func]
@@ -1073,7 +1087,8 @@ class StaticChecker(BaseVisitor,Utils):
             # VoidType -> None
             # Other would be a type
             result_type = self.visit_type(retType, param)
-            obj_type.result = result_type
+            result_var = Var(None, 'A', result_type)
+            obj_type.result = result_var
 
         else:
             pass
@@ -1372,12 +1387,116 @@ class StaticChecker(BaseVisitor,Utils):
     # pass 3, after all fields
     def visitMethodDecl(self, ast, param):
         pass_num = param['pass']
+        receiver = ast.receiver
+        recType = ast.recType
+        fun = ast.fun
 
         if pass_num == 1:
             pass
 
         elif pass_num == 2:
             pass
+
+        elif pass_num == 3:
+            scope = param['scope']
+            # TODO:
+            # collect the methods of 
+            # a struct
+            # create the Func
+            # and the Signature
+            # to store this into the TypeName
+            # Named type of the struct
+            # Named is previously created to store
+            # field
+            # checking for methods redeclared
+            # the receiver -> we know that 
+            # there will be no error about that
+            
+            # NOT CHOOSE TO REUSE self.visit(FuncDecl)
+            # different logic
+            # create Func and add to the Named
+            # but in the case of Func,
+            # we find that Obj, and add the Signature to it
+            # but it is not the case of MethodDecl
+
+            # 1. Find that which TypeName object
+
+            # Create a Func - with Signature
+            # And add it to Named, which
+            # is obj_type
+
+            # create the signature for this function
+            # assign this signature to th obj
+            # scope = param['scope']
+            # obj = scope.look_up(name)
+
+            # obj_type = Signature(None, [], None)
+            # obj.set_type(obj_type)
+
+            # create Var object and store the type
+            # inside Signature
+            
+            # receiver_var
+            # there will be no error
+            var_type = self.visit_type(recType, param)
+            obj_type = var_type
+            receiver_var = Var(None, receiver, var_type)
+
+            func = self.method_helper(fun, param)
+            func.type.recv = receiver_var
+
+            # check for redeclared
+            method_name = func.name
+            if obj_type.has_name(method_name):
+                raise Redeclared(Method(), method_name)
+            else:
+                obj_type.add_method(func)
+
+        else:
+            pass
+
+
+    def method_helper(self, ast, param):
+        name = ast.name
+        params = ast.params
+        retType = ast.retType
+
+        # Create a new Func - Signature
+        # different in the case of FuncDecl
+        # when we find the Func in the global_scope
+        # and add the signature
+        # in this case we create a new Func - Signature
+        # and then add this Func to methods
+        # remember to check for the 
+        # redeclared fields as well
+
+        signature = Signature(None, [], None)
+        func = Func(None, name, signature)
+        
+        # check for redeclared
+        test = []
+        for param_decl in params:
+            if param_decl.parName in test:
+                raise Redeclared(k=Parameter(), n=param_decl.parName)
+            else:
+                test.append(param_decl.parName)
+
+        # normal flow
+        # no redeclared
+        # create Var for each of them
+        # and then add them to Signature
+        for param_decl in params:
+            var = self.visit(param_decl, param)
+            signature.params.append(var)
+
+        # for the result
+        # VoidType -> None
+        # Other would be a type
+        result_type = self.visit_type(retType, param)
+        result_var = Var(None, 'A', result_type)
+        signature.result = result_var
+
+        return func
 
 
     def visitBlock(self, param):
