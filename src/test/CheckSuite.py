@@ -20,12 +20,12 @@ def redeclared(kind: ErrorKind, name: str) -> str:
     return f'Redeclared {kind.value}: {name}' + '\n'
 
 
-def type_mismatch(ast) -> str:
-    return f'Type Mismatch: {str(ast)}\n'
-
-
 def undeclared(kind : ErrorKind, name : str) -> str:
     return f'Undeclared {kind.value}: {name}\n'
+
+
+def type_mismatch(ast) -> str:
+    return f'Type Mismatch: {str(ast)}\n'
 
 class CheckSuite(unittest.TestCase):
 
@@ -87,6 +87,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.FUNCTION, 'main')
         self.assertTrue(TestChecker.test(input,expect,403))
 
+
     def test_404(self):
         input = \
         '''
@@ -99,6 +100,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.VARIABLE, 'a')
         self.assertTrue(TestChecker.test(input,expect,404))
 
+
     def test_405(self):
         input = \
         '''
@@ -110,6 +112,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.VARIABLE, 'main')
         self.assertTrue(TestChecker.test(input,expect,405))
+
 
     def test_406(self):
         input = \
@@ -132,6 +135,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.TYPE, 'Human')
         self.assertTrue(TestChecker.test(input,expect,406))
 
+
     def test_407(self):
         input = \
         '''
@@ -150,6 +154,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.FUNCTION, 'Computer')
         self.assertTrue(TestChecker.test(input,expect,407))
+
 
     def test_408(self):
         input = \
@@ -178,6 +183,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.CONSTANT, 'Weapon')
         self.assertTrue(TestChecker.test(input,expect,408))
 
+
     def test_409(self):
         input = \
         '''
@@ -199,6 +205,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.TYPE, 'Monster')
         self.assertTrue(TestChecker.test(input,expect,409))
+
 
     def test_410(self):
         input = \
@@ -223,13 +230,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.FUNCTION, 'doSomething')
         self.assertTrue(TestChecker.test(input,expect,410))
 
-    # NOTE: undeclared TYPE
-    # Đối với lỗi Undeclared thì 
-    # chỉ bắt các lỗi như đã mô tả trong Assignment 3 Spec. 
-    # Đối với trường hợp không mô tả (như Type) thì 
-    # xem như không xảy ra, 
-    # sẽ không có test nào gây ra lỗi này.
-    # -> ALL TYPES ARE ALL DECLARED
+
     def test_411(self):
         input = \
         '''
@@ -242,6 +243,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.CONSTANT, 'main')
         self.assertTrue(TestChecker.test(input,expect,411))
+
 
     def test_412(self):
         input = \
@@ -257,6 +259,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.FIELD, 'name')
         self.assertTrue(TestChecker.test(input,expect,412))
+
 
     def test_413(self):
         input = \
@@ -275,6 +278,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.FIELD, 'name')
         self.assertTrue(TestChecker.test(input,expect,413))
+
 
     def test_414(self):
         input = \
@@ -295,6 +299,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.FIELD, 'sons')
         self.assertTrue(TestChecker.test(input,expect,414))
 
+
     def test_415(self):
         input = \
         '''
@@ -312,6 +317,7 @@ class CheckSuite(unittest.TestCase):
             )
         )
         self.assertTrue(TestChecker.test(input,expect,415))
+
 
     def test_416(self):
         input = \
@@ -336,6 +342,7 @@ class CheckSuite(unittest.TestCase):
         )
         self.assertTrue(TestChecker.test(input,expect,416))
 
+
     def test_417(self):
         input = \
         '''
@@ -354,6 +361,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,417))
+
 
     def test_418(self):
         input = \
@@ -374,6 +382,7 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,418))
 
+
     def test_419(self):
         input = \
         '''
@@ -386,6 +395,7 @@ class CheckSuite(unittest.TestCase):
         expect = undeclared(ErrorKind.IDENTIFIER, 'A')
         self.assertTrue(TestChecker.test(input,expect,419))
 
+
     def test_420(self):
         input = \
         '''
@@ -397,6 +407,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = undeclared(ErrorKind.IDENTIFIER, 'SIZE')
         self.assertTrue(TestChecker.test(input,expect,420))
+
 
     def test_421(self):
         input = \
@@ -420,6 +431,7 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,421))
 
+
     def test_422(self):
         input = \
         '''
@@ -436,6 +448,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.PROTOTYPE, 'getName')
         self.assertTrue(TestChecker.test(input,expect,422))
+
 
     def test_423(self):
         input = \
@@ -462,6 +475,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.PROTOTYPE, 'getKeyBoard')
         self.assertTrue(TestChecker.test(input,expect,423))
 
+
     def test_424(self):
         input = \
         '''
@@ -480,6 +494,7 @@ class CheckSuite(unittest.TestCase):
         expect = undeclared(ErrorKind.IDENTIFIER, 'F')
         self.assertTrue(TestChecker.test(input,expect,424))
 
+
     def test_425(self):
         input = \
         '''
@@ -497,6 +512,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.PARAMETER, 'a')
         self.assertTrue(TestChecker.test(input,expect,425))
+
 
     def test_426(self):
         input = \
@@ -519,6 +535,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.PARAMETER, 'h')
         self.assertTrue(TestChecker.test(input,expect,426))
 
+
     def test_427(self):
         input = \
         '''
@@ -538,6 +555,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.METHOD, 'a')
         self.assertTrue(TestChecker.test(input,expect,427))
+
 
     def test_428(self):
         input = \
@@ -563,6 +581,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = redeclared(ErrorKind.METHOD, 'eat')
         self.assertTrue(TestChecker.test(input,expect,428))
+
 
     def test_429(self):
         input = \
@@ -591,6 +610,7 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.METHOD, 'name')
         self.assertTrue(TestChecker.test(input,expect,429))
 
+
     def test_430(self):
         input = \
         '''
@@ -616,25 +636,43 @@ class CheckSuite(unittest.TestCase):
         expect = redeclared(ErrorKind.METHOD, 'son')
         self.assertTrue(TestChecker.test(input,expect,430))
 
+
     def test_431(self):
         input = \
         '''
         func main() {
             var a int = 100
         }
+
+        var a int = 4.5
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'a',
+                IntType(),
+                FloatLiteral(4.5)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,431))
+
 
     def test_432(self):
         input = \
         '''
+        var a string = 100
         func main() {
             var a int = 100
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'a',
+                StringType(),
+                IntLiteral(100)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,432))
+
 
     def test_433(self):
         input = \
@@ -646,15 +684,47 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,433))
 
+
     def test_434(self):
         input = \
         '''
         func main() {
             var a int = 100
         }
+
+        var a float = 100
+        var b float = 1.4
+        var c float = 2
+        var d Animal = Tiger {name : "", blood : 100, dam : 500.0}
+        var e boolean = true
+        var f string = "some thing\\n"
+        var g int = 100
+        var h float = g
+        var i [4]int = [4]int{1, 2, 3, 4}
+        var j [3][2][1]float = [3][2][1]int{{{1}, {2}}, {{3}, {4}}, {{5}, {6}}}
+
+        type Animal interface {
+            attack(a Animal) float
+            eat(a Animal)
+        }
+
+        func (t Tiger) attack(a Animal) float {
+            return 0.5
+        }
+
+        func (t Tiger) eat(a Animal) {
+            t.blood := 100
+        }
+
+        type Tiger struct {
+            name string
+            blood int
+            dam float
+        }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,434))
+
 
     def test_435(self):
         input = \
@@ -662,9 +732,35 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var arr [5][5]string = [1][1]string{{"string"}}
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'arr',
+                ArrayType(
+                    [
+                        IntLiteral(5),
+                        IntLiteral(5)
+                    ],
+                    StringType()
+                ),
+                ArrayLiteral(
+                    [
+                        IntLiteral(1),
+                        IntLiteral(1)
+                    ],
+                    StringType(),
+                    [
+                        [
+                            StringLiteral('"string"')
+                        ]
+                    ]
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,435))
+
 
     def test_436(self):
         input = \
@@ -672,9 +768,39 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var w Weapon = Axe{}
+
+        type Human struct {
+            name string
+            age int
+            blood float
+        }
+
+        type Weapon interface {
+            attack(a int, b string, c float, d Human)
+        }
+
+        type Axe struct {
+            dam float
+        }
+
+        func (a Axe) attack(a float, b string, c float, d Human) {
+            d.blood := d.blood - a.dam
+        }
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'w',
+                Id('Weapon'),
+                StructLiteral(
+                    'Axe',
+                    []
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,436))
+
 
     def test_437(self):
         input = \
@@ -682,9 +808,33 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var e1 Entity = Herobrine{}
+        var e2 Entity = Player{}
+
+        type Herobrine struct {
+            power int
+        }
+
+        func (h Herobrine) getBlood() int {
+            return 99999
+        }
+
+        type Entity interface {
+            getBlood() int
+        }
+
+        type Player struct {
+            name string
+        }
+
+        func (p Player) getBlood() int {
+            return 100
+        }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,437))
+
 
     def test_438(self):
         input = \
@@ -692,9 +842,22 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var a int = (200 - 2)
+        var b string = "b"
+        var c = b + "c"
+        var d = b + c + c + c + b + "this one"
+        var e = d + 10.4
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '+',
+                Id('d'),
+                FloatLiteral(10.4)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,438))
+
 
     def test_439(self):
         input = \
@@ -702,9 +865,24 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var a = ""
+        var b = 100
+        var c = true || false
+        var e = [4]int{1, 2, 3, 4}
+        var f = e
+        var m = f
+        var n int = f
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'n',
+                IntType(),
+                Id('f')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,439))
+
 
     def test_440(self):
         input = \
@@ -712,9 +890,29 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var a = 100 // int
+        var b = 1.5 // float
+        var c = false // boolean
+        var e = "string" //string
+        var f = "string"
+        var g [5]string
+        var h [3]string = g
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'h',
+                ArrayType(
+                    [
+                        IntLiteral(3)
+                    ],
+                    StringType()
+                ),
+                Id('g')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,440))
+
 
     def test_441(self):
         input = \

@@ -49,7 +49,6 @@ Object = *Func      O
 '''
 Type = *Basic       O
     | *Array        O
-    | *Struct       O
     | *Signature    O
     | *Named        O
     | *Interface    O
@@ -77,6 +76,15 @@ class Signature(ZType):
         self.recv    : Var        = recv
         self.params  : List[Var]  = params
         self.result  : Var        = result
+
+    def is_void(self) -> bool:
+        return self.result is None
+
+    def __str__(self):
+        recv_str = f"recv={self.recv.name}" if self.recv else "recv=None"
+        params_str = f"params=[{', '.join(param.name for param in self.params)}]"
+        result_str = f"result={self.result.name}" if self.result else "result=None"
+        return f"Signature({recv_str}, {params_str}, {result_str})"
 class Named(ZType):
     """
     Represents a struct type
@@ -111,6 +119,28 @@ class Named(ZType):
         if name in names:
             return True
         return False
+    
+
+    # func (h Human) eat(num int, [4]Array) int
+    # recv is not important anymore
+    def has_method(self, func):
+        name = func.name
+
+        # check for the name
+        method_name = map(lambda func : func.name, self.methods)
+        if name not in method_name:
+            return False
+        
+        # get the method
+        method = self.get_method(name)
+
+        # check for signature
+        return identical(func.type, method.type)
+
+
+    def get_method(self, name):
+        return next((method for method in self.methods if method.name == name), None)
+
 class Interface(ZType):
     def __init__(self):
         self.methods    = [] # List[Func]
@@ -121,7 +151,9 @@ class Interface(ZType):
 
 
 def identical(t1 : ZType, t2 : ZType) -> bool:
+
     if t1 is t2:
+        # for struct
         return True
     
     elif type(t1) != type(t2):
@@ -131,18 +163,32 @@ def identical(t1 : ZType, t2 : ZType) -> bool:
         return t1.kind == t2.kind
     
     elif isinstance(t1, Array) and isinstance(t2, Array):
-        # SOS
-        pass
+        return t1.len == t2.len and identical(t1.elem, t2.elem)
+    
     elif isinstance(t1, Signature) and isinstance(t2, Signature):
-        # SOS
-        # not happen
-        # resolving ID
-        pass
+        if t1.is_void() and t2.is_void():
+            pass
+
+        if (t1.is_void() and not t2.is_void()) or \
+            (t2.is_void() and not t1.is_void()):
+            return False
+
+        if not t1.is_void() and not t2.is_void():
+            if not identical(t1.result.type, t2.result.type):
+                return False
+        
+        if len(t1.params) != len(t2.params):
+            return False
+        
+        return all(identical(v1.type, v2.type) for v1, v2 in zip(t1.params, t2.params))
+
+
     elif isinstance(t1, Named) and isinstance(t2, Named):
-        # SOS
-        # not happen
-        # resolving ID
-        pass
+        return t1 is t2
+    
+    elif isinstance(t1, Interface) and isinstance(t2, Interface):
+        return t1 is t2
+
     else:
         return False
 
@@ -290,6 +336,18 @@ class ZScope:
                 value.set_undeclared()
 
 
+    def drop_var_const(self):
+        new_elems = {
+
+        }
+        for obj in self.elems.values():
+            if isinstance(obj, (Var, Const)):
+                pass
+            else:
+                new_elems[obj.name] = obj
+        self.elems = new_elems
+
+
 #==================================
 # UTILITY FUNCTION
 #==================================
@@ -351,15 +409,14 @@ class StaticChecker(BaseVisitor,Utils):
         parameters = {
             'pass' : 1,
             'global_scope' : global_scope,
+            'scope' : global_scope
         }
         self.visit(self.ast, param=parameters)
 
 
         #==================================
-        # SECOND PASS - fields collecting
+        # SECOND PASS - fields, interface
         #==================================
-        # in the temp_global_scope
-        # just get the needed one
         global_scope.refresh_global()
         parameters = {
             'pass' : 2,
@@ -370,7 +427,7 @@ class StaticChecker(BaseVisitor,Utils):
         
     
         #==================================
-        # THIRD PASS - FUNC collecting
+        # THIRD PASS - FUNC, METH collecting
         #==================================
         global_scope.refresh_global()
         parameters = {
@@ -381,6 +438,20 @@ class StaticChecker(BaseVisitor,Utils):
         self.visit(self.ast, param=parameters)
 
 
+        #==================================
+        # FIN PASS - TYPE CHECKING
+        #==================================
+        global_scope.refresh_global()
+        global_scope.drop_var_const()
+        # global_scope just contains
+        # TypeName
+        # Func
+        parameters = {
+            'pass' : 4,
+            'scope' : global_scope
+        }
+        self.visit(self.ast, param=parameters)
+
 
     #==================================
     # TRAVERSING LOGIC
@@ -389,82 +460,143 @@ class StaticChecker(BaseVisitor,Utils):
     def visitProgram(self, ast, param):
         pass_num = param['pass']
         if pass_num == 1:
-            # pass 1: declaration pass
+            # pass 1: declaration pass [Const]
             [self.visit(decl, param=param) for decl in ast.decl]
         
         elif pass_num == 2:
-            # pass 2: collection pass
+            # pass 2: collection pass  [Const]
             [self.visit(decl, param=param) for decl in ast.decl]
 
         elif pass_num == 3:
-            # pass 3: function and method collection pass
+            # pass 3: function and method collection pass [Const]
+            [self.visit(decl, param=param) for decl in ast.decl]
+
+        elif pass_num == 4:
+            # pass 4: type checking pass [Const]
             [self.visit(decl, param=param) for decl in ast.decl]
 
         else:
             pass
 
 
-    # Biểu thức khởi tạo cho biến và hằng: 
-    # Biểu thức này có các toán hạng là hằng, 
-    # chỉ sử dụng các phép toán từ mức 2 đến mức 
-    # 7 trong bảng độ ưu tiên phép toán. 
-    # Không có gọi hàm hay phương thức. 
-    # Hằng trong các biểu thức này là hằng có tên 
-    # (của một khai báo hằng trước đó) 
-    # hoặc không tên. Các hằng không tên kiểu tích hợp 
-    # như StructLiteral và ArrayLiteral 
-    # thì chỉ xuất hiện một mình trong các biểu thức này 
-    # chứ không tham gia vào phép toán nào khác 
-    # (không thiết kế test mà các hằng kiểu tích hợp 
-    # tham gia phép toán khác).
     def visitVarDecl(self, ast, param):
+        # Simple case
+
         pass_num = param['pass']
-        global_scope = param['global_scope']
         name = ast.varName
+        varType = ast.varType
+        varInit = ast.varInit
 
         if pass_num == 1:
+            global_scope = param['global_scope']
             if global_scope.look_up(name) is not None:
                 raise Redeclared(k=Variable(), n=name)
             else:
-                obj = Var(None, name=name, typ=None, is_field=False)
+                obj = Var(global_scope, name=name, typ=None, is_field=False)
                 global_scope.insert(obj)
-            return
         
         elif pass_num == 2:
             scope = param['scope']
             scope.resolve(name).set_declared()
-            pass
 
         elif pass_num == 3:
             scope = param['scope']
             scope.resolve(name).set_declared()
-            pass
-    
+            
+        elif pass_num == 4:
+            scope = param['scope']
+            if scope.look_up(name) is not None:
+                raise Redeclared(k=Variable(), n=name)
+            
+            else:
+                obj = Var(parent=scope, name=name, typ=None)
+                typ = None
 
-    # Biểu thức khởi tạo cho biến và hằng: 
-    # Biểu thức này có các toán hạng là hằng, 
-    # chỉ sử dụng các phép toán từ mức 2 đến mức 
-    # 7 trong bảng độ ưu tiên phép toán. 
-    # Không có gọi hàm hay phương thức. 
-    # Hằng trong các biểu thức này là hằng có tên 
-    # (của một khai báo hằng trước đó) 
-    # hoặc không tên. 
-    # ###################################
-    # Các hằng không tên kiểu tích hợp
-    # NOTE: This would require struct collection
-    # như StructLiteral và ArrayLiteral 
-    # thì chỉ xuất hiện một mình trong các biểu thức này 
-    # chứ không tham gia vào phép toán nào khác 
-    # (không thiết kế test mà các hằng kiểu tích hợp 
-    # tham gia phép toán khác).
-    # const CONSTANT = always evaluated at compile time
+                if varType is not None and varInit is not None:
+                    # ensure the type to have
+                    # the same type
+                    init_type = self.visit_type(varType, param)
+                    expr_type = self.visit_expr(varInit, param)
+
+                    if not self.check_var(init_type, expr_type):
+                        raise TypeMismatch(ast)
+                    
+                    # change type
+                    if isinstance(expr_type, Named):
+                        typ = expr_type
+                    else:
+                        typ = init_type
+
+                elif varType is None:
+                    # get the type from expr
+                    typ = self.visit_expr(varInit, param)
+
+                elif varInit is None:
+                    # get the type from type
+                    typ = self.visit_type(varType, param)
+
+                obj.set_type(typ)
+
+                scope.insert(obj)
+
+        else:
+            pass
+
+
+    def check_array(self, t1 : Array, t2 : Array):
+        # base case
+        if t1.len != t2.len:
+            return False
+        
+        if identical(t1.elem, Basic(BasicKind.FLOAT)) and \
+            identical(t2.elem, Basic(BasicKind.INT)):
+            return True
+        
+        if isinstance(t1.elem, Array) and isinstance(t2.elem, Array):
+            return self.check_array(t1.elem, t2.elem)
+        
+        else:
+            return identical(t1.elem, t2.elem)
+
+
+    def check_interface(self, t1 : Interface, t2 : Named) -> bool:
+        # the struct must implement all methods
+        # in the interface
+        methods = t1.methods
+        for method in methods:
+            if not t2.has_method(method):
+                return False
+        return True
+
+
+
+    def check_var(self, init_type, expr_type) -> bool:
+        if identical(init_type, expr_type):
+            # assign the type of any
+            return True
+        
+        elif identical(init_type, Basic(BasicKind.FLOAT)) and \
+             identical(expr_type, Basic(BasicKind.INT)):
+            # assign the type of float
+            return True
+        
+        elif isinstance(init_type, Array) and isinstance(expr_type, Array):
+            return self.check_array(init_type, expr_type)
+        
+        elif isinstance(init_type, Interface) and isinstance(expr_type, Named):
+            return self.check_interface(init_type, expr_type)
+        
+        else:
+            return identical(init_type, expr_type)
+
+
     def visitConstDecl(self, ast, param):
         pass_num = param['pass']
         name = ast.conName
-        global_scope = param['global_scope']
         expr = ast.iniExpr
 
         if pass_num == 1:
+            global_scope = param['global_scope']
             if global_scope.look_up(name) is not None:
                 raise Redeclared(k=Constant(), n=name)
             else:
@@ -502,7 +634,6 @@ class StaticChecker(BaseVisitor,Utils):
                 value = self.visit(expr, parameters)
                 obj.set_type(typ)
                 obj.value = value
-            return
         
         elif pass_num == 3:
             scope = param['scope']
@@ -741,38 +872,27 @@ class StaticChecker(BaseVisitor,Utils):
                 raise TypeMismatch(ast)
 
 
-    def visit_expression(self, ast, param):
-        pass_num = param['pass']
-        if pass_num == 99:
-            # evaluation
+    def visit_expr(self, ast, param):
+        # evaluation
+        if param['pass'] == 99:
             if isinstance(ast, Id):
-                pass
-            return
+                # SOS
+                # Not handling errors
+                obj = self.visit(ast, param)
+                return obj.value
 
         # type checking
         if isinstance(ast, Id):
-            # visit the Id node -> resolve to [Object]
-            # current scope
             obj = self.visit(ast, param)
             if obj is None:
-                # faild to resolve
                 raise Undeclared(k=Identifier(), n=ast.name)
             
             elif isinstance(obj, (TypeName, Func)):
-                '''
-                Type checking error: ./tests/9.test:18:18: Human (type) is not an expression
-                exit status 1
-
-                Type checking error: ./tests/9.test:18:18: invalid operation: operator - not defined on doSomething (value of type func())
-                exit status 1
-                '''
-                # resolve to weird things
-                # SOS, may be NOT HAPPEN
                 pass
+
             elif isinstance(obj, (Var, Const)):
-                # correctly resolve
-                # get the type and return
                 return obj.type
+
         else:
             return self.visit(ast, param)
 
@@ -915,7 +1035,7 @@ class StaticChecker(BaseVisitor,Utils):
         # [1, 2, 3, 4] and a type
         # [4, 3, 2, 1] and a type
         # Array(1, Array(2, Array(3, Array(4, type))))
-        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), size.reversed(), element_type)
+        array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), reversed(size), element_type)
         return array_type
     
 
@@ -923,41 +1043,21 @@ class StaticChecker(BaseVisitor,Utils):
         '''
         var a Human = Human{name : "string", age : 100}
         '''
-        # 1. getting the current scope
-        scope = param['scope']
-
-        # 2. getting the node's information
         name = ast.name
         elements = ast.elements
-        # NOTE:
-        # - possible errors
-        # - [Human] cannot be found -> Undeclared Type -> NOT HAPPEN    O
-        # - type mismatch between field and value -> NOT HAPPEN         O
-        # - [name], [age] cannot be found -> Undeclared field           O
-        # - [name] can appear many times -> NOT HAPPEN                  O
-
-        # 3. resolve Object -> TypeName not [Var, Func, Const]
-
         typ = self.visit_type(Id(name), param)
 
-        fields = typ.fields
         for field_name, expr in elements:
-            # name, expr
-            field_type = self.visit(expr)
+            # SOS
             if not typ.has_field(field_name):
-                # SOS
                 raise Undeclared(k=Field(), n=field_name)
             
             if True:
-                # Type mismatch between expr and field's type
-                # NOT HAPPEN
+                # SOS
+                # for the type mismatch of value
                 pass
-            
-            # The actual type object stored in
-            # TypeName object [fields, Methods]
-            # Identity comparison
-            # Allow for identity comparison, t1 == t2
-            return typ
+
+        return typ
 
 
     def visitNilLiteral(self, ast, param):
@@ -977,6 +1077,7 @@ class StaticChecker(BaseVisitor,Utils):
     
 
     def visitMethCall(self, ast, param):
+        # check for Expr
         reveicer = ast.receiver
         metName = ast.metName
         args = ast.args
@@ -985,16 +1086,20 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitArrayCell(self, ast, param):
         # no need to check for dimention and size mismatch
+        # check for the expression
+        # in the arr[][][] to be int type
         arr = ast.arr
         idx = ast.idx
         return None
     
 
     def visitFieldAccess(self, ast, param):
+        # check for id return Var, Const
+        # not TypeName, Func
         receiver = ast.receiver
         field = ast.field
         return None
-    
+
 
     '''
     Object = *Func      O - represent a function (foo(), boo())
@@ -1065,8 +1170,8 @@ class StaticChecker(BaseVisitor,Utils):
             # for the result
             # VoidType -> None
             # Other would be a type
-            if len(obj_type.params) == 0:
-                obj_type.params = None
+            # if len(obj_type.params) == 0:
+            #     obj_type.params = None
 
             result_type = self.visit_type(retType, param)
             if result_type is None:
@@ -1094,9 +1199,9 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitStructType(self, ast, param):
         pass_num = param['pass']
-        global_scope = param['global_scope']
         name = ast.name
         if pass_num == 1:
+            global_scope = param['global_scope']
             if global_scope.look_up(name) is not None:
                 raise Redeclared(k=Type(), n=name)
             else:
@@ -1108,7 +1213,7 @@ class StaticChecker(BaseVisitor,Utils):
             # TODO:
             # - check for fields redeclared
             # - create Type of Object
-
+            global_scope = param['global_scope']
             # We have the Object [TypeName]
             obj = global_scope.look_up(name)
             # Create the type
@@ -1280,21 +1385,18 @@ class StaticChecker(BaseVisitor,Utils):
 
             if obj is None:
                 # SOS NOT HAPPEN
+                # Type is undeclared
                 pass
             
             if isinstance(obj, (Var, Const, Func)):
-                # SIS NOT HAPPEN
+                # SOS NOT HAPPEN
                 pass
 
             if isinstance(obj, TypeName):
                 # correct
                 return obj.type
+
         else:
-            # IntType
-            # StringType
-            # BoolType
-            # FloatType
-            # ArrayType
             return self.visit(ast, param)
 
 
@@ -1315,14 +1417,6 @@ class StaticChecker(BaseVisitor,Utils):
         
         elif pass_num == 2:
             scope = param['scope']
-            # TODO:
-            # - check for prototypes redeclared
-            # - create Type of Object
-            # - Create Func object, Signature for it
-            # - Add it to the Interface Type of
-            # - The TypeName object
-
-            # look up the object again -> TypeName
             obj = scope.look_up(name)
             # create the type of it
             # check for redeclared prototype
@@ -1335,6 +1429,7 @@ class StaticChecker(BaseVisitor,Utils):
 
             # already check
             typ = Interface()
+            obj.set_type(typ)
 
             for method in methods:
                 func = self.visit(method, param)
@@ -1370,7 +1465,7 @@ class StaticChecker(BaseVisitor,Utils):
         if return_var_type is None:
             return_var = None
         else:
-            return_var = Var(None, 'A', return_var_type, False)
+            return_var = Var(None, 'A', return_var_type)
 
         signature = Signature(None, method_var_list, return_var)
 
@@ -1394,46 +1489,6 @@ class StaticChecker(BaseVisitor,Utils):
             pass
 
         elif pass_num == 3:
-            scope = param['scope']
-            # TODO:
-            # collect the methods of 
-            # a struct
-            # create the Func
-            # and the Signature
-            # to store this into the TypeName
-            # Named type of the struct
-            # Named is previously created to store
-            # field
-            # checking for methods redeclared
-            # the receiver -> we know that 
-            # there will be no error about that
-            
-            # NOT CHOOSE TO REUSE self.visit(FuncDecl)
-            # different logic
-            # create Func and add to the Named
-            # but in the case of Func,
-            # we find that Obj, and add the Signature to it
-            # but it is not the case of MethodDecl
-
-            # 1. Find that which TypeName object
-
-            # Create a Func - with Signature
-            # And add it to Named, which
-            # is obj_type
-
-            # create the signature for this function
-            # assign this signature to th obj
-            # scope = param['scope']
-            # obj = scope.look_up(name)
-
-            # obj_type = Signature(None, [], None)
-            # obj.set_type(obj_type)
-
-            # create Var object and store the type
-            # inside Signature
-            
-            # receiver_var
-            # there will be no error
             var_type = self.visit_type(recType, param)
             obj_type = var_type
             receiver_var = Var(None, receiver, var_type)
@@ -1457,15 +1512,6 @@ class StaticChecker(BaseVisitor,Utils):
         params = ast.params
         retType = ast.retType
 
-        # Create a new Func - Signature
-        # different in the case of FuncDecl
-        # when we find the Func in the global_scope
-        # and add the signature
-        # in this case we create a new Func - Signature
-        # and then add this Func to methods
-        # remember to check for the 
-        # redeclared fields as well
-
         signature = Signature(None, [], None)
         func = Func(None, name, signature)
         
@@ -1477,19 +1523,9 @@ class StaticChecker(BaseVisitor,Utils):
             else:
                 test.append(param_decl.parName)
 
-        # normal flow
-        # no redeclared
-        # create Var for each of them
-        # and then add them to Signature
         for param_decl in params:
             var = self.visit(param_decl, param)
             signature.params.append(var)
-
-        # for the result
-        # VoidType -> None
-        # Other would be a type
-        if len(signature.params) == 0:
-            signature.params = None
 
         result_type = self.visit_type(retType, param)
         if result_type is None:
