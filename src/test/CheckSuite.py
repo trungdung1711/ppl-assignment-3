@@ -570,8 +570,25 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Food struct {
+            calories float
+        }
+
+        func (h Human) eat(f Food) int {
+            return f.calories
+        }
+
+        type Human struct {
+            name string
+            age int
+        }
+
+        func (m Human) name() string {
+            return m.name
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.METHOD, 'name')
         self.assertTrue(TestChecker.test(input,expect,429))
 
     def test_430(self):
@@ -580,8 +597,23 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Animal struct {
+            arr [4]int
+            son Animal
+            parent Animal
+            isDead boolean
+        }
+
+        func killAnimal(a Animal) {
+            a.isDead := true
+        }
+
+        func (a Animal) son() Animal {
+            return a.son
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.METHOD, 'son')
         self.assertTrue(TestChecker.test(input,expect,430))
 
     def test_431(self):

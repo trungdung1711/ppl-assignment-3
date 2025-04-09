@@ -937,42 +937,21 @@ class StaticChecker(BaseVisitor,Utils):
         # - [name] can appear many times -> NOT HAPPEN                  O
 
         # 3. resolve Object -> TypeName not [Var, Func, Const]
-        obj = scope.look_up_parent(name)
-        if obj is None:
-            '''
-            Type checking error: ./tests/8.test:6:17: undefined: <Type>
-            exit status 1
-            '''
-            # NOT HAPPEN
-            pass
-        elif isinstance(obj, (Var, Const, Func)):
-            '''
-            Type checking error: ./tests/8.test:6:17: <Type> is not a type
-            exit status 1
-            '''
-            # NOT HAPPEN
-            pass
-        elif isinstance(obj, TypeName):
-            # Found the correct Object
-            # Get the type Named
-            # May be found interface
-            typ = obj.type
-            '''
-            Type checking error: ./tests/8.test:5:45: unknown field <field> in struct literal of type <type>
-            exit status 1
-            '''
-            fields = typ.fields
-            for field_name, expr in elements:
-                # name, expr
-                field_type = self.visit(expr)
-                if not typ.has_field(field_name):
-                    # SOS
-                    raise Undeclared(k=Field(), n=field_name)
-                
-                if True:
-                    # Type mismatch between expr and field's type
-                    # NOT HAPPEN
-                    pass
+
+        typ = self.visit_type(Id(name), param)
+
+        fields = typ.fields
+        for field_name, expr in elements:
+            # name, expr
+            field_type = self.visit(expr)
+            if not typ.has_field(field_name):
+                # SOS
+                raise Undeclared(k=Field(), n=field_name)
+            
+            if True:
+                # Type mismatch between expr and field's type
+                # NOT HAPPEN
+                pass
             
             # The actual type object stored in
             # TypeName object [fields, Methods]
@@ -1086,8 +1065,14 @@ class StaticChecker(BaseVisitor,Utils):
             # for the result
             # VoidType -> None
             # Other would be a type
+            if len(obj_type.params) == 0:
+                obj_type.params = None
+
             result_type = self.visit_type(retType, param)
-            result_var = Var(None, 'A', result_type)
+            if result_type is None:
+                result_var = None
+            else:
+                result_var = Var(None, 'A', result_type)
             obj_type.result = result_var
 
         else:
@@ -1278,6 +1263,17 @@ class StaticChecker(BaseVisitor,Utils):
     
 
     def visit_type(self, ast, param):
+        """wrapper of type deduction for ast.Ident
+        prevent Object [Var, Func, Const], allow 
+        TypeName only, expect type at this point
+
+        Args:
+            ast (_type_): _description_
+            param (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         if isinstance(ast, Id):
             # Resolve
             obj = self.visit(ast, param)
@@ -1492,8 +1488,14 @@ class StaticChecker(BaseVisitor,Utils):
         # for the result
         # VoidType -> None
         # Other would be a type
+        if len(signature.params) == 0:
+            signature.params = None
+
         result_type = self.visit_type(retType, param)
-        result_var = Var(None, 'A', result_type)
+        if result_type is None:
+            result_var = None
+        else:
+            result_var = Var(None, 'A', result_type)
         signature.result = result_var
 
         return func
