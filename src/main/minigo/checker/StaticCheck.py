@@ -138,6 +138,10 @@ class Interface(ZType):
 
     def add_method(self, method):
         self.methods.append(method)
+
+
+    def get_method(self, name):
+        return next((method for method in self.methods if method.name == name), None)
 class Void(ZType):
     """
     Represent the absent of the type, it is not a real type
@@ -915,7 +919,7 @@ class StaticChecker(BaseVisitor,Utils):
                 return obj.type
 
 
-        elif isinstance(ast, FuncCall):
+        elif isinstance(ast, (FuncCall, MethCall)):
             typ = self.visit(ast, param)
             if identical(typ, Void()):
                 raise TypeMismatch(ast)
@@ -1123,9 +1127,61 @@ class StaticChecker(BaseVisitor,Utils):
             return obj.type.result.type
 
 
+    def visitMethCall(self, ast, param):
+        # 1. check for the type of the receiver
+        # it must be the Named or Interface
+        # if it is not Named or Interface -> error
+
+        # 2. Now we have the Named or Interface
+        # we would check whether the methods exist
+        # or not
+        # self.methods to check for the method
+        # name
+        # raise undeclared method if there is no method found
+
+        # 3. found method
+        # get the params type
+        # change to the list
+        # call check_function to check for that
+        # and return the type of this expression
+        # visit_expr will collect that and raise
+        # if the returned type is Void (represents a return-nothing-function)
+        receiver = ast.receiver
+        metName = ast.metName
+        args = ast.args
+
+        recv_type = self.visit_expr(receiver, param)
+
+        if not isinstance(recv_type, (Named, Interface)):
+            raise TypeMismatch(ast)
+        
+        # Named or interface type
+        # Func object getting from Named or Interface
+        # getting the name of the method
+        method = recv_type.get_method(metName)
+        if method is None:
+            raise Undeclared(k=Method(), n=metName)
+
+        # contain that method
+        # now checking for the arguments and the parameters
+
+        param_types = list(map(lambda var : var.type, method.type.params))
+        arg_types = list(map(lambda arg : self.visit_expr(arg, param), args))
+
+        if not self.check_function(param_types, arg_types):
+            raise TypeMismatch(ast)
+        
+        return method.type.result.type
+
+
     def check_function(self, param_types, arg_types) -> bool:
         # 1. pass the list of parameters type
         # 2. pass the list of arguments type
+
+        # SOS, not exact same type
+        # but a struct obj can be passed to
+        # interface if the struct types
+        # are all implemented
 
         # len is different
         if len(param_types) != len(arg_types):
@@ -1135,14 +1191,6 @@ class StaticChecker(BaseVisitor,Utils):
         # must be same type
         # exactly the same -> identical
         return all(identical(t1, t2) for t1, t2 in zip(param_types, arg_types))
-
-
-    def visitMethCall(self, ast, param):
-        reveicer = ast.receiver
-        metName = ast.metName
-        args = ast.args
-        return None
-
 
     '''
     Object = *Func      O - represent a function (foo(), boo())

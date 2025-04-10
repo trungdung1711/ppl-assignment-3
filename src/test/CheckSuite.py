@@ -1029,9 +1029,30 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            name string
+            age int
+        }
+
+        func (h Human) eat() int {
+            return 100
+        }
+
+        var a Human = Human {name : "Dung", age : 18}
+        var b int = a.eat(1)
         '''
-        expect = ''
+        expect = type_mismatch(
+            MethCall(
+                Id('a'),
+                'eat',
+                [
+                    IntLiteral(1)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,445))
+
 
     def test_446(self):
         input = \
@@ -1039,9 +1060,22 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            name string
+            age int
+        }
+
+        func (h Human) eat() int {
+            return 100
+        }
+
+        var a Human = Human {name : "Dung", age : 18}
+        var b int = a.weird()
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.METHOD, 'weird')
         self.assertTrue(TestChecker.test(input,expect,446))
+
 
     def test_447(self):
         input = \
@@ -1049,9 +1083,20 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Computer interface {
+            getName() string
+            getCode() string
+        }
+
+        var c Computer;
+        var name = c.getName()
+        var code = c.getCode()
+        var error = c.getWeird()
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.METHOD, 'getWeird')
         self.assertTrue(TestChecker.test(input,expect,447))
+
 
     def test_448(self):
         input = \
@@ -1059,9 +1104,44 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const SIZE = 12 * 23
+
+        func (d Dog) Name() string {
+            return d.name
+        }
+
+        func (d Dog) Age() int {
+            return d.age
+        }
+
+        func (d Dog) Bones() int {
+            return 23 - 4
+        }
+
+        type Dog struct {
+            name string
+            age int
+            bones [SIZE]int
+        }
+
+        var d = Dog{}
+        var a = d.Name()
+        var b = d.Age()
+        var c = d.Bones("string")
+
         '''
-        expect = ''
+        expect = type_mismatch(
+            MethCall(
+                Id('d'),
+                'Bones',
+                [
+                    StringLiteral('"string"')
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,448))
+
 
     def test_449(self):
         input = \
@@ -1069,9 +1149,44 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        func CreateHuman() Human {
+            return Human{}
+        }
+
+        type Human struct {
+            name string
+            laptop Laptop
+        }
+
+        func (h Human) Laptop() Laptop {
+            return h.laptop
+        }
+
+        type Laptop struct {
+            code string
+        }
+
+        func (l Laptop) Code() string {
+            return l.code
+        }
+
+        var code string = CreateHuman().Laptop(1).Code()
         '''
-        expect = ''
+        expect = type_mismatch(
+            MethCall(
+                FuncCall(
+                    'CreateHuman',
+                    []
+                ),
+                'Laptop',
+                [
+                    IntLiteral(1)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,449))
+
 
     def test_450(self):
         input = \
@@ -1079,9 +1194,57 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Weapon struct {
+            skills [10]int
+            dam float
+        }
+
+        func (w Weapon) Special(a int, b float, c string) string {
+            return "KILL"
+        }
+
+        func (w Weapon) Dam() float {
+            return w.dam
+        }
+
+        type Player struct {
+            name string
+            scores int
+            blood int
+            weapons [5]Weapon
+        }
+
+        func (p Player) Weapon(num int) Weapon {
+            return weapons[num]
+        }
+
+        func (p Player) Attack(e Player) int{
+            return 100
+        }
+
+        var p1 Player = Player{}
+        var p2 Player = Player{}
+
+        var w1 Weapon = p1.Weapon(1)
+        var w2 Weapon = p2.Weapon(2)
+
+        var dam1 = p1.Weapon(1).Dam()
+        var dam2 = p2.Weapon(1).Dam()
+
+        var special string = p2.Weapon(4.5).Special(23, 45.6, "Special")
         '''
-        expect = ''
+        expect = type_mismatch(
+            MethCall(
+                Id('p2'),
+                'Weapon',
+                [
+                    FloatLiteral(4.5)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,450))
+
 
     def test_451(self):
         input = \
