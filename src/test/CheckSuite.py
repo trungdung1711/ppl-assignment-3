@@ -1252,9 +1252,29 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Cow struct {
+            name string
+        }
+
+        func (c Cow) InvadeTheWorld(a float) {
+            var a int = 100
+        } 
+
+        var cow = Cow{}
+        var a = cow.InvadeTheWorld(4.5)
         '''
-        expect = ''
+        expect = type_mismatch(
+            MethCall(
+                Id('cow'),
+                'InvadeTheWorld',
+                [
+                    FloatLiteral(4.5)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,451))
+
 
     def test_452(self):
         input = \
@@ -1262,9 +1282,39 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type House struct {
+            room Room
+        }
+
+        type Room struct {
+            bed Bed
+        }
+
+        type Bed struct {
+            pillow Pillow
+        }
+
+        type Pillow struct {
+            cat Cat
+        }
+
+        type Cat struct {
+            name string
+            virus Virus
+        }
+
+        type Virus struct {
+            name string
+            dam float
+        }
+
+        var house = House{}
+        var catName = house.room.bed.pillow.cat.virus.dama
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.FIELD, 'dama')
         self.assertTrue(TestChecker.test(input,expect,452))
+
 
     def test_453(self):
         input = \
@@ -1272,8 +1322,21 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Animal struct {
+            name string
+            age int
+            typ string
+        }
+
+        var a = Animal{}
+        var name = a.name
+        var age = a.age
+        var typ = a.typ
+
+        var w = a.w
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.FIELD, 'w')
         self.assertTrue(TestChecker.test(input,expect,453))
 
     def test_454(self):
@@ -1282,6 +1345,17 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Check struct {
+            a Animal
+        }
+
+        type Animal interface {
+            getName() string
+        }
+
+        var check Check = Check{}
+        var a = check.a.getName()
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,454))

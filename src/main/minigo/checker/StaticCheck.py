@@ -52,6 +52,7 @@ Type = *Basic       O
     | *Signature    O
     | *Named        O
     | *Interface    O
+    | *Void         +
 '''
 #==================================
 # TYPE
@@ -131,6 +132,10 @@ class Named(ZType):
 
     def get_method(self, name):
         return next((method for method in self.methods if method.name == name), None)
+    
+
+    def get_field(self, name):
+        return next((field for field in self.fields if field.name == name), None)
 class Interface(ZType):
     def __init__(self):
         self.methods    = [] # List[Func]
@@ -666,19 +671,6 @@ class StaticChecker(BaseVisitor,Utils):
         else:
             pass
 
-
-    #==================================
-    # TYPE CHECKING HAPPENING
-    #==================================
-    '''
-    Type = *Basic       O [int, string, ...]
-        | *Array        O [[4]int, [1]float]
-        | *Signature    O 
-        | *Named        O 
-        | *Interface    O 
-    '''
-
-
     class Operator(Enum):
         ADD     = '+'
         SUB     = '-'
@@ -1191,13 +1183,39 @@ class StaticChecker(BaseVisitor,Utils):
         # must be same type
         # exactly the same -> identical
         return all(identical(t1, t2) for t1, t2 in zip(param_types, arg_types))
+    
 
-    '''
-    Object = *Func      O - represent a function (foo(), boo())
-        | *Var          O - represent a variable (a, b, c)
-        | *Const        O - represent a const (PI, SIZE)
-        | *TypeName     O - represent a typename (Human, Computer)
-    '''
+    def visitArrayCell(self, ast, param):
+        # no need to check for dimention and size mismatch
+        # check for the expression
+        # in the arr[][][] to be int type
+        arr = ast.arr
+        idx = ast.idx
+        return None
+    
+
+    def visitFieldAccess(self, ast, param):
+        receiver = ast.receiver
+        field = ast.field
+
+        recv_type = self.visit_expr(receiver, param)
+
+        # print(f'{field} and {recv_type is None}')
+
+        if not isinstance(recv_type, Named):
+            raise TypeMismatch(ast)
+
+        field_var = recv_type.get_field(field)
+
+        if field_var is None:
+            raise Undeclared(k=Field(), n=field)
+        
+        # print(f'{field} and {field_var.type is None}')
+        # Var of field in Named
+
+        return field_var.type
+
+
     def visitId(self, ast, param):
         name = ast.name
         scope = param['scope']
@@ -1205,10 +1223,7 @@ class StaticChecker(BaseVisitor,Utils):
         # NOTE: Id will be resolved into
         # different kinds of [Object]
         return scope.look_up_parent(name)
-    #==================================
-    # TYPE CHECKING HAPPENING
-    #==================================
-    
+
    
     def visitFuncDecl(self, ast, param):
         pass_num = param['pass']
@@ -1223,6 +1238,8 @@ class StaticChecker(BaseVisitor,Utils):
                 raise Redeclared(k=Function(), n=name)
             else:
                 obj = Func(parent=None, name=name, typ=None)
+                typ = Signature(None, [], None)
+                obj.set_type(typ)
                 global_scope.insert(obj)
             return
 
@@ -1235,8 +1252,8 @@ class StaticChecker(BaseVisitor,Utils):
             scope = param['scope']
             obj = scope.look_up(name)
 
-            obj_type = Signature(None, [], None)
-            obj.set_type(obj_type)
+            # obj_type = Signature(None, [], None)
+            # obj.set_type(obj_type)
 
             # create Var object and store the type
             # inside Signature
@@ -1255,7 +1272,7 @@ class StaticChecker(BaseVisitor,Utils):
             # and then add them to Signature
             for param_decl in params:
                 var = self.visit(param_decl, param)
-                obj_type.params.append(var)
+                obj.type.params.append(var)
 
             # for the result
             # VoidType -> None
@@ -1270,7 +1287,7 @@ class StaticChecker(BaseVisitor,Utils):
             #     result_var = Var(None, 'A', result_type)
             result_type = self.visit_type(retType, param)
             result_var = Var(None, 'return', result_type)
-            obj_type.result = result_var
+            obj.type.result = result_var
 
         elif pass_num == 4:
             # TODO:
@@ -1312,6 +1329,8 @@ class StaticChecker(BaseVisitor,Utils):
                 raise Redeclared(k=Type(), n=name)
             else:
                 obj = TypeName(parent=None, name=name, typ=None)
+                typ = Named()
+                obj.set_type(typ)
                 global_scope.insert(obj)
             return
 
@@ -1334,42 +1353,15 @@ class StaticChecker(BaseVisitor,Utils):
                     test.append(name)
             
             # normal flow, no exception, adding to Type
-            typ = Named()
-            obj.set_type(typ)
+            # typ = Named()
+            # obj.set_type(typ)
             for name, field_type in ast.elements:
-                # we must get the name
-                # we must get the type
-                # scope would be the current scope
-                # allow us to resolve for Const of Array
-                # from point of declaration
-
                 field_typ = self.visit_type(field_type, param)
-
-                # if isinstance(field_type, Id):
-                #     obj = self.visit(field_type, parameters)
-                #     if obj is None:
-                #         # NOT HAPPEN
-                #         pass
-                #     elif isinstance(obj, (Func, Var, Const)):
-                #         # NOT HAPPEN
-                #         pass
-                #     elif isinstance(obj, TypeName):
-                #         field_typ = obj.type
-                
-                # else:
-                #     # normal type
-                #     # should change because this is different from Id
-                #     # should be unified
-                #     # IntType()
-                #     # StringType()
-                #     # ArrayType()
-                #     field_typ = self.visit(field_type, parameters)
-
-
                 new_field = Var(parent=None, name=name, typ=field_typ, is_field=True)
+
+                # print(f'{name}+{type(field_typ)}')
                 obj.type.add_field(new_field)
             
-            return
 
         else:
             pass
@@ -1488,6 +1480,9 @@ class StaticChecker(BaseVisitor,Utils):
             # Resolve
             obj = self.visit(ast, param)
 
+            # if (ast.name == 'Room'):
+            #     print(f'{ast.name} + {type(obj)}')
+
             if obj is None:
                 # SOS NOT HAPPEN
                 # Type is undeclared
@@ -1499,6 +1494,8 @@ class StaticChecker(BaseVisitor,Utils):
 
             if isinstance(obj, TypeName):
                 # correct
+                # if (ast.name == 'Room'):
+                #     print(type(obj.type))
                 return obj.type
 
         else:
@@ -1517,6 +1514,8 @@ class StaticChecker(BaseVisitor,Utils):
                 raise Redeclared(k=Type(), n=name)
             else:
                 obj = TypeName(parent=None, name=name, typ=None)
+                typ = Interface()
+                obj.set_type(typ)
                 global_scope.insert(obj)
             return
         
@@ -1533,12 +1532,12 @@ class StaticChecker(BaseVisitor,Utils):
                     test.append(method.name)
 
             # already check
-            typ = Interface()
-            obj.set_type(typ)
+            # typ = Interface()
+            # obj.set_type(typ)
 
             for method in methods:
                 func = self.visit(method, param)
-                typ.add_method(func)
+                obj.type.add_method(func)
 
             return
 
@@ -1675,23 +1674,6 @@ class StaticChecker(BaseVisitor,Utils):
         rhs_type = self.visit_expr(rhs, param)
 
 
-    def visitArrayCell(self, ast, param):
-        # no need to check for dimention and size mismatch
-        # check for the expression
-        # in the arr[][][] to be int type
-        arr = ast.arr
-        idx = ast.idx
-        return None
-    
-
-    def visitFieldAccess(self, ast, param):
-        # check for id return Var, Const
-        # not TypeName, Func
-        receiver = ast.receiver
-        field = ast.field
-        return None
-   
-   
     def visitIf(self, param):
         return None
     
