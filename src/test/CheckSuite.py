@@ -920,9 +920,32 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+        const SIZE = 10
+        var arr [SIZE]int = [2]int{1, 2}
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'arr',
+                ArrayType(
+                    [
+                        Id('SIZE')
+                    ],
+                    IntType()
+                ),
+                ArrayLiteral(
+                    [
+                        IntLiteral(2)
+                    ],
+                    IntType(),
+                    [
+                        IntLiteral(1),
+                        IntLiteral(2)
+                    ]
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,441))
+
 
     def test_442(self):
         input = \
@@ -930,9 +953,27 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        const a = 10
+        const b = 11
+        const c = b - a
+        const arr = [c]int{ 1 }
+        var len [2]int = arr
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'len',
+                ArrayType(
+                    [
+                        IntLiteral(2)
+                    ],
+                    IntType()
+                ),
+                Id('arr')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,442))
+
 
     def test_443(self):
         input = \
@@ -940,9 +981,30 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Human struct {
+            name string
+            age int
+        }
+
+        const a = 10
+        const b = a - 2
+        const c = b / 4
+        const d = c * 3
+
+        var arr [6]int = [d]int{1, 2, 3, 4, 5, 6}
+
+        var h Human = arr
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'h',
+                Id('Human'),
+                Id('arr')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,443))
+
 
     def test_444(self):
         input = \
@@ -1527,13 +1589,13 @@ class CheckSuite(unittest.TestCase):
 
 
 
-    # def test_type_mismatch(self):
-    #     input = """var a int = 1.2;"""
-    #     expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
-    #     self.assertTrue(TestChecker.test(input,expect,403))
+    def test_type_mismatch(self):
+        input = """var a int = 1.2;"""
+        expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
+        self.assertTrue(TestChecker.test(input,expect,403))
 
 
-    # def test_undeclared_identifier(self):
-    #     input = Program([VarDecl("a",IntType(),Id("b"))])
-    #     expect = "Undeclared Identifier: b\n"
-    #     self.assertTrue(TestChecker.test(input,expect,404))
+    def test_undeclared_identifier(self):
+        input = Program([VarDecl("a",IntType(),Id("b"))])
+        expect = "Undeclared Identifier: b\n"
+        self.assertTrue(TestChecker.test(input,expect,404))

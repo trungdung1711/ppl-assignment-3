@@ -73,18 +73,9 @@ class Array(ZType):
         self.elem   : ZType  = elem
 class Signature(ZType):
     def __init__(self, recv, params, result):
-        self.recv    : Var        = recv
-        self.params  : List[Var]  = params
-        self.result  : Var        = result
-
-    def is_void(self) -> bool:
-        return self.result is None
-
-    def __str__(self):
-        recv_str = f"recv={self.recv.name}" if self.recv else "recv=None"
-        params_str = f"params=[{', '.join(param.name for param in self.params)}]"
-        result_str = f"result={self.result.name}" if self.result else "result=None"
-        return f"Signature({recv_str}, {params_str}, {result_str})"
+        self.recv    : Var        = recv    # None if function
+        self.params  : List[Var]  = params  # Empty []
+        self.result  : Var        = result  # Return nothing -> Var(Void)
 class Named(ZType):
     """
     Represents a struct type
@@ -140,7 +131,6 @@ class Named(ZType):
 
     def get_method(self, name):
         return next((method for method in self.methods if method.name == name), None)
-
 class Interface(ZType):
     def __init__(self):
         self.methods    = [] # List[Func]
@@ -148,7 +138,18 @@ class Interface(ZType):
 
     def add_method(self, method):
         self.methods.append(method)
+class Void(ZType):
+    """
+    Represent the absent of the type, it is not a real type
+    in the type system. Its main purpose is to tell the type
+    checker that a function doesn't return anything.
 
+    Inherits:
+        ZType: The base class for type definitions in the system.
+
+    Note:
+    """
+    pass
 
 def identical(t1 : ZType, t2 : ZType) -> bool:
 
@@ -159,6 +160,9 @@ def identical(t1 : ZType, t2 : ZType) -> bool:
     elif type(t1) != type(t2):
         return False
     
+    elif isinstance(t1, Void) and isinstance(t2, Void):
+        return True
+    
     elif isinstance(t1, Basic) and isinstance(t2, Basic):
         return t1.kind == t2.kind
     
@@ -166,18 +170,12 @@ def identical(t1 : ZType, t2 : ZType) -> bool:
         return t1.len == t2.len and identical(t1.elem, t2.elem)
     
     elif isinstance(t1, Signature) and isinstance(t2, Signature):
-        if t1.is_void() and t2.is_void():
-            pass
-
-        if (t1.is_void() and not t2.is_void()) or \
-            (t2.is_void() and not t1.is_void()):
-            return False
-
-        if not t1.is_void() and not t2.is_void():
-            if not identical(t1.result.type, t2.result.type):
-                return False
-        
+        # len of params
         if len(t1.params) != len(t2.params):
+            return False
+        
+        # type of return
+        if not identical(t1.result.type, t2.result.type):
             return False
         
         return all(identical(v1.type, v2.type) for v1, v2 in zip(t1.params, t2.params))
@@ -255,10 +253,6 @@ class ZScope:
         self.elems      : dict[str, ZObject]    = elems     # Dict[string, Object]
         self.isFunc     : bool                  = isFunc    # bool
 
-
-    # def parent(self):
-    #     return self.parent
-    
 
     def len(self):
         return len(self.elems)
@@ -522,10 +516,11 @@ class StaticChecker(BaseVisitor,Utils):
                         raise TypeMismatch(ast)
                     
                     # change type
-                    if isinstance(expr_type, Named):
-                        typ = expr_type
-                    else:
-                        typ = init_type
+                    typ = init_type
+                    # if isinstance(expr_type, Named):
+                    #     typ = expr_type
+                    # else:
+                    #     typ = init_type
 
                 elif varType is None:
                     # get the type from expr
@@ -567,7 +562,6 @@ class StaticChecker(BaseVisitor,Utils):
             if not t2.has_method(method):
                 return False
         return True
-
 
 
     def check_var(self, init_type, expr_type) -> bool:
@@ -638,6 +632,32 @@ class StaticChecker(BaseVisitor,Utils):
         elif pass_num == 3:
             scope = param['scope']
             scope.resolve(name).set_declared()
+
+        elif pass_num == 4:
+            scope = param['scope']
+
+            # 1. Check for redeclared
+            if scope.look_up(name) is not None:
+                raise Redeclared(k=Constant(), n=name)
+            else:
+                obj = Const(parent=scope, name=name, typ=None, value=None)
+
+                # 2. type checking
+                typ = self.visit_expr(expr, param)
+                obj.set_type(typ)
+
+                if isinstance(typ, Basic):
+                    parameters = {
+                        'pass' : 99,
+                        'scope' : scope
+                    }
+                    value = self.visit_expr(expr, parameters)
+                    obj.value = value
+                else:
+                    # SOS
+                    pass
+
+                scope.insert(obj)
 
         else:
             pass
@@ -897,7 +917,6 @@ class StaticChecker(BaseVisitor,Utils):
             return self.visit(ast, param)
 
 
-    # Used specifically for expression
     def id_helper(self, ast, param):
         # visit the Id node -> resolve to [Object]
         # current scope
@@ -969,75 +988,21 @@ class StaticChecker(BaseVisitor,Utils):
         '''
         var arr [SIZE][SIZE][SIZE]int = [SIZE][SIZE][SIZE]int{1, 2, 3}
         '''
-        # possible errors
-        # generically recursive
-        # SIZE is not int type (others)                         NOT HAPPEN
-        # SIZE is not constant (not evaluale at compile time)   NOT HAPPEN
-        # elements have different types with type               NOT HAPPEN
-        # MUST CACULATE THE SIZE AND RETURN THE Array back
         dimens = ast.dimens
         eleType = ast.eleType
-        value = ast.value   # may be used to check for type NOT HAPPEN
+        value = ast.value
 
-        # SIZE is always IntLiteral and Const (resolve)
+        parameters = {
+            'pass' : 99,
+            'scope' : param['scope']
+        }
 
-        size = []
-        for expr in dimens:
-            if isinstance(expr, Id):
-                typ = self.id_helper(expr, param)
-                parameters = {
-                    'pass' : 99,
-                    'scope' : param['scope']
-                }
-                if isinstance(typ, (Array, Named)):
-                    # SOS
-                    pass
-                value = self.id_helper(expr, param)
-                size.append(value)
-
-            else:
-                # case IntLiteral
-                parameters = {
-                    'pass' : 99,
-                    'scope' : param['scope']
-                }
-                value = self.visit(expr, parameters)
-                size.append(value)
+        size = [self.visit_expr(expr, parameters) for expr in dimens]
         
-        # for the type
-        # not the array, but can be IntType, FloatType
-        # StringType, BoolType, Id
-        # if isinstance(eleType, Id):
-        #     obj = self.visit(eleType, param)
-        #     if obj is None:
-        #         # undeclared type. NOT HAPPEN
-        #         pass
-        #     if isinstance(obj, (Var, Const, Func)):
-        #         # NOT HAPPEN
-        #         pass
-        #     if isinstance(obj, TypeName):
-        #         # correct, can be Named or Interface
-        #         # Getting the type
-        #         typ = obj.type
-        # else:
-        #     # other case rather than Id
-        #     obj = self.visit(eleType, param)
-        #     typ = obj.type
-
-        # handle for us, when the type is ID, and other cases
-        # only get the Type object
         element_type = self.visit_type(eleType, param)
-        
-        # no need to check for the values inside the
-        # array literal, just calculate the size and then
-        # return the new Array (Type)
-        # using reduce
-        # [1, 2, 3, 4] and a type
-        # [4, 3, 2, 1] and a type
-        # Array(1, Array(2, Array(3, Array(4, type))))
         array_type = reduce(lambda acc, cur: Array(len=cur, elem=acc), reversed(size), element_type)
         return array_type
-    
+
 
     def visitStructLiteral(self, ast, param):
         '''
@@ -1065,39 +1030,34 @@ class StaticChecker(BaseVisitor,Utils):
     
 
     #==================================
-    # DIFFERENTIATE BETWEEN expr and stmt
+    # USING WRAPPTERS
+    # can be in expr and can be a stmt
     #==================================
     def visitFuncCall(self, ast, param):
-        # funcName must be resolve to be 
-        # Func object
-        # Check for Signature and args type
+        # expr
         funcName = ast.funName
         args = ast.args
-        return None
+        
+        # 1. check for the name of the function
+        # -> raise Undeclared function
+
+        # 2. check for the signature
+        # [type mismatch in express]
+        # or type mismatch in function
+        # parameter check
+
+        # 3. return the type
+        # of this expression (based on the signature)
+        # but if it doesn't return
+        # then there is no type
+        # in Go, we have Basic/Array/Named/Interface
+        # return what?
     
 
     def visitMethCall(self, ast, param):
-        # check for Expr
         reveicer = ast.receiver
         metName = ast.metName
         args = ast.args
-        return None
-    
-
-    def visitArrayCell(self, ast, param):
-        # no need to check for dimention and size mismatch
-        # check for the expression
-        # in the arr[][][] to be int type
-        arr = ast.arr
-        idx = ast.idx
-        return None
-    
-
-    def visitFieldAccess(self, ast, param):
-        # check for id return Var, Const
-        # not TypeName, Func
-        receiver = ast.receiver
-        field = ast.field
         return None
 
 
@@ -1119,7 +1079,6 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     
    
-    # pass 3, along with MethodDecl
     def visitFuncDecl(self, ast, param):
         pass_num = param['pass']
         name = ast.name
@@ -1173,12 +1132,28 @@ class StaticChecker(BaseVisitor,Utils):
             # if len(obj_type.params) == 0:
             #     obj_type.params = None
 
+            # result_type = self.visit_type(retType, param)
+            # if result_type is None:
+            #     result_var = None
+            # else:
+            #     result_var = Var(None, 'A', result_type)
             result_type = self.visit_type(retType, param)
-            if result_type is None:
-                result_var = None
-            else:
-                result_var = Var(None, 'A', result_type)
+            result_var = Var(None, 'return', result_type)
             obj_type.result = result_var
+
+        elif pass_num == 4:
+            # TODO:
+            # Go inside a function
+            # 1. Add a child scope - function scope
+            # 2. Declare the parameter by create Var and
+            # add to the current scope
+            # 3. Add a child scope
+            # 4. Pass this child scope along side
+            # and with a flag of inside function
+            # and the return type to check for case
+            # return wrong types, or expect a return
+            # but return is given
+            pass
 
         else:
             pass
@@ -1362,9 +1337,8 @@ class StaticChecker(BaseVisitor,Utils):
         return array_type
 
 
-    # Used for function
     def visitVoidType(self, ast, param):
-        return None
+        return Void()
     
 
     def visit_type(self, ast, param):
@@ -1458,14 +1432,16 @@ class StaticChecker(BaseVisitor,Utils):
             method_var_list.append(var)
 
         # create the return type
-        return_var_type = self.visit_type(retType, param)
+        return_type = self.visit_type(retType, param)
 
 
         # VoidType handling
-        if return_var_type is None:
-            return_var = None
-        else:
-            return_var = Var(None, 'A', return_var_type)
+        # if return_var_type is None:
+        #     return_var = None
+        # else:
+        #     return_var = Var(None, 'A', return_var_type)
+
+        return_var = Var(None, 'return', return_type)
 
         signature = Signature(None, method_var_list, return_var)
 
@@ -1475,7 +1451,6 @@ class StaticChecker(BaseVisitor,Utils):
         return func
 
 
-    # pass 3, after all fields
     def visitMethodDecl(self, ast, param):
         pass_num = param['pass']
         receiver = ast.receiver
@@ -1528,10 +1503,12 @@ class StaticChecker(BaseVisitor,Utils):
             signature.params.append(var)
 
         result_type = self.visit_type(retType, param)
-        if result_type is None:
-            result_var = None
-        else:
-            result_var = Var(None, 'A', result_type)
+        # if result_type is None:
+        #     result_var = None
+        # else:
+        #     result_var = Var(None, 'A', result_type)
+
+        result_var = Var(None, 'return', result_type)
         signature.result = result_var
 
         return func
@@ -1541,7 +1518,46 @@ class StaticChecker(BaseVisitor,Utils):
         return None
  
 
-    def visitAssign(self, param):
+    def visitAssign(self, ast, param):
+        scope = param['scope']
+        lhs = self.lhs
+        rhs = self.rhs
+
+        '''
+        // if it is declared -> assigned -> check for type
+        // if it is not declared -> declared -> Var
+        a := 100
+
+        // human Named type
+        // the type has field name
+        // type checking between
+        human.name := "Dung"
+
+        // arr must be an array type
+        // get correct element (NOT HAPPEN)
+        // type checking between
+        arr[1] := 23
+        '''
+
+        # 1. getting the type of the right hand side
+        # 2. catching errors like undeclared
+        rhs_type = self.visit_expr(rhs, param)
+
+
+    def visitArrayCell(self, ast, param):
+        # no need to check for dimention and size mismatch
+        # check for the expression
+        # in the arr[][][] to be int type
+        arr = ast.arr
+        idx = ast.idx
+        return None
+    
+
+    def visitFieldAccess(self, ast, param):
+        # check for id return Var, Const
+        # not TypeName, Func
+        receiver = ast.receiver
+        field = ast.field
         return None
    
    
