@@ -1339,6 +1339,7 @@ class CheckSuite(unittest.TestCase):
         expect = undeclared(ErrorKind.FIELD, 'w')
         self.assertTrue(TestChecker.test(input,expect,453))
 
+
     def test_454(self):
         input = \
         '''
@@ -1360,15 +1361,37 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,454))
 
+
     def test_455(self):
         input = \
         '''
         func main() {
             var a int = 100
         }
+
+        const SIZE = 10
+        var arr [SIZE]int = [SIZE]int{1, 2, 3, 4, 5, 6, 7, 8, 8, 9, 10}
+
+        var first int = arr[0]
+        var second int = arr[1]
+
+        var matrix [4][4]float = [4][4]int{{1, 2, 3, 4}, {5, 6, 7, 8}, {0, 0, 0, 0}, {0, 0, 0, 0}}
+
+        var row_0 [4]float = matrix[0]
+
+        var brr [5]int
+        var value1 = brr["d"]
         '''
-        expect = ''
+        expect = type_mismatch(
+            ArrayCell(
+                Id('brr'),
+                [
+                    StringLiteral('"d"')
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,455))
+
 
     def test_456(self):
         input = \
@@ -1376,9 +1399,21 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        var arr [4][5][3]int
+        var b int
+        var value = b[3]
         '''
-        expect = ''
+        expect = type_mismatch(
+            ArrayCell(
+                Id('b'),
+                [
+                    IntLiteral(3)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,456))
+
 
     def test_457(self):
         input = \
@@ -1833,13 +1868,13 @@ class CheckSuite(unittest.TestCase):
 
 
 
-    def test_type_mismatch(self):
-        input = """var a int = 1.2;"""
-        expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
-        self.assertTrue(TestChecker.test(input,expect,403))
+    # def test_type_mismatch(self):
+    #     input = """var a int = 1.2;"""
+    #     expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
+    #     self.assertTrue(TestChecker.test(input,expect,403))
 
 
-    def test_undeclared_identifier(self):
-        input = Program([VarDecl("a",IntType(),Id("b"))])
-        expect = "Undeclared Identifier: b\n"
-        self.assertTrue(TestChecker.test(input,expect,404))
+    # def test_undeclared_identifier(self):
+    #     input = Program([VarDecl("a",IntType(),Id("b"))])
+    #     expect = "Undeclared Identifier: b\n"
+    #     self.assertTrue(TestChecker.test(input,expect,404))

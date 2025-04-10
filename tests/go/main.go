@@ -1,8 +1,8 @@
 package main
 
 func main() {
-	var h Human = Human{name: "", age: 1, float: 100}
-	println(h.float)
+	var arr [2][2]int = [2][2]int{{1, 2}, {3, 4}}
+	println(arr[1][1][1])
 }
 
 type Human struct {

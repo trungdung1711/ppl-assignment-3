@@ -522,14 +522,11 @@ class StaticChecker(BaseVisitor,Utils):
                     expr_type = self.visit_expr(varInit, param)
 
                     if not self.check_var(init_type, expr_type):
+                        # print('Check ' + name)
+                        # print(f'{type(init_type)} and {type(expr_type)}')
                         raise TypeMismatch(ast)
                     
-                    # change type
                     typ = init_type
-                    # if isinstance(expr_type, Named):
-                    #     typ = expr_type
-                    # else:
-                    #     typ = init_type
 
                 elif varType is None:
                     # get the type from expr
@@ -547,20 +544,21 @@ class StaticChecker(BaseVisitor,Utils):
             pass
 
 
-    def check_array(self, t1 : Array, t2 : Array) -> bool:
-        # base case
+    def check_array(self, t1: Array, t2: Array) -> bool:
         if t1.len != t2.len:
             return False
-        
-        if identical(t1.elem, Basic(BasicKind.FLOAT)) and \
-            identical(t2.elem, Basic(BasicKind.INT)):
-            return True
-        
+
+        # Recursive check for nested arrays
         if isinstance(t1.elem, Array) and isinstance(t2.elem, Array):
             return self.check_array(t1.elem, t2.elem)
-        
-        else:
-            return identical(t1.elem, t2.elem)
+
+        # Special case: allow float ← int promotion
+        if identical(t1.elem, Basic(BasicKind.FLOAT)) and \
+        identical(t2.elem, Basic(BasicKind.INT)):
+            return True
+
+        # Fallback: strict match
+        return identical(t1.elem, t2.elem)
 
 
     def check_interface(self, t1 : Interface, t2 : Named) -> bool:
@@ -584,6 +582,8 @@ class StaticChecker(BaseVisitor,Utils):
             return True
         
         elif isinstance(init_type, Array) and isinstance(expr_type, Array):
+            # print('check')
+            # print(f'{init_type.len} and {expr_type.len}')
             return self.check_array(init_type, expr_type)
         
         elif isinstance(init_type, Interface) and isinstance(expr_type, Named):
@@ -622,10 +622,12 @@ class StaticChecker(BaseVisitor,Utils):
 
             # Case: Id -> return Object, not Type
             # Other case -> return Type
-            if isinstance(expr, Id):
-                typ = self.id_helper(expr, param)
-            else:
-                typ = self.visit(expr, param)
+            # if isinstance(expr, Id):
+            #     typ = self.id_helper(expr, param)
+            # else:
+            #     typ = self.visit(expr, param)
+
+            typ = self.visit_expr(expr, param)
 
             if isinstance(typ, (Basic)):
                 # evaluate value
@@ -634,7 +636,7 @@ class StaticChecker(BaseVisitor,Utils):
                     'scope' : scope
                 }
 
-                value = self.visit(expr, parameters)
+                value = self.visit_expr(expr, parameters)
                 obj.set_type(typ)
                 obj.value = value
         
@@ -689,9 +691,6 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitBinaryOp(self, ast, param):
-        '''
-        Expression context
-        '''
         op = ast.op
         X = ast.left
         Y = ast.right
@@ -701,15 +700,17 @@ class StaticChecker(BaseVisitor,Utils):
 
         if pass_num == 99:
             # type checking is done
-            if isinstance(X, Id):
-                value_X = self.id_helper(ast=X, param=param)
-            else:
-                value_X = self.visit(X, param)
+            # if isinstance(X, Id):
+            #     value_X = self.id_helper(ast=X, param=param)
+            # else:
+            #     value_X = self.visit(X, param)
 
-            if isinstance(Y, Id):
-                value_Y = self.id_helper(ast=Y, param=param)
-            else:
-                value_Y = self.visit(Y, param)
+            # if isinstance(Y, Id):
+            #     value_Y = self.id_helper(ast=Y, param=param)
+            # else:
+            #     value_Y = self.visit(Y, param)
+            value_X = self.visit_expr(X, param)
+            value_Y = self.visit_expr(Y, param)
 
             if op == StaticChecker.Operator.ADD.value:
                 return value_X + value_Y
@@ -740,15 +741,18 @@ class StaticChecker(BaseVisitor,Utils):
 
 
         # first guard -> Object is not [Const, Var] but [TypeName, Func]
-        if isinstance(X, Id):
-            type_X = self.id_helper(ast=X, param=param)
-        else:
-            type_X = self.visit(X, param)
+        # if isinstance(X, Id):
+        #     type_X = self.visit_expr(ast=X, param=param)
+        # else:
+        #     type_X = self.visit(X, param)
 
-        if isinstance(Y, Id):
-            type_Y = self.id_helper(ast=Y, param=param)
-        else:
-            type_Y = self.visit(Y, param)
+        # if isinstance(Y, Id):
+        #     type_Y = self.id_helper(ast=Y, param=param)
+        # else:
+        #     type_Y = self.visit(Y, param)
+
+        type_X = self.visit_expr(X, param)
+        type_Y = self.visit_expr(Y, param)
 
         # type checking
         int_type        = Basic(kind=BasicKind.INT)
@@ -840,9 +844,6 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitUnaryOp(self, ast, param):
-        '''
-        Expression context
-        '''
         op = ast.op
         X = ast.body
         type_X = None
@@ -852,20 +853,25 @@ class StaticChecker(BaseVisitor,Utils):
             # type is finish, just evaluation
             # For literal, it is OK
             # But for Id -> break
-            if isinstance(X, Id):
-                value_X = self.id_helper(X, param)
-            else:
-                value_X = self.visit(X, param)
+            # if isinstance(X, Id):
+            #     value_X = self.id_helper(X, param)
+            # else:
+            #     value_X = self.visit(X, param)
+
+            value_X = self.visit_expr(X, param)
+
             if op == StaticChecker.Operator.NOT.value:
                 return not value_X
             elif op == StaticChecker.Operator.SUB.value:
                 return - value_X
 
         # first guard from [TypeName], [Func]
-        if isinstance(X, Id):
-            type_X = self.id_helper(X, param)
-        else:
-            type_X = self.visit(X, param)
+        # if isinstance(X, Id):
+        #     type_X = self.id_helper(X, param)
+        # else:
+        #     type_X = self.visit(X, param)
+
+        type_X = self.visit_expr(X, param)
 
         # type checking
         int_type = Basic(kind=BasicKind.INT)
@@ -921,37 +927,6 @@ class StaticChecker(BaseVisitor,Utils):
 
         else:
             return self.visit(ast, param)
-
-
-    def id_helper(self, ast, param):
-        # visit the Id node -> resolve to [Object]
-        # current scope
-        pass_num = param['pass']
-        if pass_num == 99:
-            # type checking is done
-            # So it is OK
-            obj = self.visit(ast, param)
-            return obj.value
-
-        obj = self.visit(ast=ast, param=param)
-        if obj is None:
-            # faild to resolve
-            raise Undeclared(k=Identifier(), n=ast.name)
-        elif isinstance(obj, (TypeName, Func)):
-            '''
-            Type checking error: ./tests/9.test:18:18: Human (type) is not an expression
-            exit status 1
-
-            Type checking error: ./tests/9.test:18:18: invalid operation: operator - not defined on doSomething (value of type func())
-            exit status 1
-            '''
-            # resolve to weird things
-            # SOS, may be NOT HAPPEN
-            pass
-        elif isinstance(obj, (Var, Const)):
-            # correctly resolve
-            # get the type and return
-            return obj.type
 
 
     def visitIntLiteral(self, ast, param):
@@ -1191,7 +1166,70 @@ class StaticChecker(BaseVisitor,Utils):
         # in the arr[][][] to be int type
         arr = ast.arr
         idx = ast.idx
-        return None
+        
+        # 1. must visit and get
+        # the type of the expression
+        # accept Array type only
+        # also we have the information
+        # about the len and the element
+        # note that this is 
+        # a bunch of operation
+        # arr[2][3][4][5][6] -> a bunch of operation
+        # return the type after these bunch of operation
+        # and we won't check for out-of-bound index
+        # cause we don't know, the index can be run-time
+        # not compile-time, thus the compiler (semantic analysis)
+        # just check for the type only
+
+        # 2. for each of the expression
+        # check for Basic(BasicKind.INT)
+        # false -> raise type_mismatch
+        # return the Array when getting 
+        # that array subscription
+        # return elem actually
+
+        arr_type = self.visit_expr(arr, param)
+
+        if not isinstance(arr_type, Array):
+            raise TypeMismatch(ast)
+        
+        # [3][4]int
+        # but arr[3][2][1] -> raise error
+        # because in this case we won't know
+        # the return turn actually
+        # but in the assignment
+        # there is no description about that
+        # then no worry?
+
+        # using reduce to make it
+        # into something like ArrayCell(expr, expr)
+        # arr[1][2][3]
+        # in range -> still have the type returned
+        # back
+        index_types = list(map(lambda index: self.visit_expr(index, param), idx))
+        if not self.check_array_cell(index_types):
+            raise TypeMismatch(ast)
+        
+        # now return the type
+        # there is no need to check for
+        # out of bound
+        # because there is no description
+        # about that
+        # and we can take the type returned back
+        # without worrying about that
+        # arr_type which is len and elem
+        # arr[1] -> return arr_type.elem
+        # arr[1][2] -> return arr_type.elem.elem
+        # arr[1][2][3][4]
+
+        # this one can cause error if
+        # out of bound of the dimension
+        # SOS
+        return reduce(lambda acc, cur: arr_type.elem, index_types, arr_type)
+
+
+    def check_array_cell(self, index_types) -> bool:
+        return all(identical(t, Basic(BasicKind.INT)) for t in index_types)
     
 
     def visitFieldAccess(self, ast, param):
@@ -1415,36 +1453,12 @@ class StaticChecker(BaseVisitor,Utils):
 
         size = []
         for expr in dimens:
-            if isinstance(expr, Id):
-                # ensure resolve to Const/Var
-                # assume always calcualted
-                # prevent weird Object
-                # but not prevent weird basic type
-                # like string, float, bool, Struct, Array
-                # SOS
-                typ = self.id_helper(expr, param)
-                parameters = {
-                    'pass' : 99,
-                    'scope' : param['scope']
-                }
-                if isinstance(typ, (Array, Named)):
-                    # SOS
-                    # NOT HAPPEN
-                    # ALWAYS RESOLVE TO CONST
-                    # FLOAT/STRING?
-                    # NOT HAPPEN
-                    pass
-                value = self.id_helper(expr, param)
-                size.append(value)
-
-            else:
-                # case IntLiteral
-                parameters = {
-                    'pass' : 99,
-                    'scope' : param['scope']
-                }
-                value = self.visit(expr, parameters)
-                size.append(value)
+            parameters = {
+                'pass' : 99,
+                'scope' : param['scope']
+            }
+            value = self.visit_expr(expr, parameters)
+            size.append(value)
 
         # the element type ([][][]TYPE)
         element_type = self.visit_type(eleType, param)

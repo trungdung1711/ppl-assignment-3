@@ -1,25 +1,25 @@
 gen :
-	toilet --metal -t --font mono12  "gen"
+	toilet -f smblock --metal "gen"
 	python run.py gen
 
 lex :
-	toilet --metal -t --font mono12  "lexer"
+	toilet -f smblock --metal "lexer"
 	python run.py test LexerSuite
 
 par : 
-	toilet --metal -t --font mono12  "parser"
+	toilet -f smblock --metal "parser"
 	python run.py test ParserSuite
 
 ast :
-	toilet --metal -t --font mono12  "ast"
+	toilet -f smblock --metal "ast"
 	python run.py test ASTGenSuite
 
 check :
-	toilet --metal -t --font mono12  "semantic"
+	toilet -f smblock --metal "semantic"
 	python run.py test CheckSuite
 
 all :
-	toilet --metal -t --font mono12  "test all"
+	toilet -f smblock --metal "test all"
 	zsh ./run.sh
 
 .PHONY : gen ast all lex par check
