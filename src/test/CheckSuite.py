@@ -1012,8 +1012,15 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+
+        func add5(a int, b int, c int, d int, e int) {
+            return a + b + c + d + e
+        }
+
+        var a int = add4(3, 4, 5)
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.FUNCTION, 'add4')
         self.assertTrue(TestChecker.test(input,expect,444))
 
     def test_445(self):

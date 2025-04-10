@@ -538,7 +538,7 @@ class StaticChecker(BaseVisitor,Utils):
             pass
 
 
-    def check_array(self, t1 : Array, t2 : Array):
+    def check_array(self, t1 : Array, t2 : Array) -> bool:
         # base case
         if t1.len != t2.len:
             return False
@@ -893,6 +893,7 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visit_expr(self, ast, param):
+        # wrapper for expression type constraints
         # evaluation
         if param['pass'] == 99:
             if isinstance(ast, Id):
@@ -901,7 +902,7 @@ class StaticChecker(BaseVisitor,Utils):
                 obj = self.visit(ast, param)
                 return obj.value
 
-        # type checking
+
         if isinstance(ast, Id):
             obj = self.visit(ast, param)
             if obj is None:
@@ -912,6 +913,15 @@ class StaticChecker(BaseVisitor,Utils):
 
             elif isinstance(obj, (Var, Const)):
                 return obj.type
+
+
+        elif isinstance(ast, FuncCall):
+            typ = self.visit(ast, param)
+            if identical(typ, Void()):
+                raise TypeMismatch(ast)
+            
+            return typ
+
 
         else:
             return self.visit(ast, param)
@@ -1027,7 +1037,11 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitNilLiteral(self, ast, param):
         return None
-    
+
+
+    def visit_stmt(self, ast, param):
+        pass
+
 
     #==================================
     # USING WRAPPTERS
@@ -1035,7 +1049,7 @@ class StaticChecker(BaseVisitor,Utils):
     #==================================
     def visitFuncCall(self, ast, param):
         # expr
-        funcName = ast.funName
+        funName = ast.funName
         args = ast.args
         
         # 1. check for the name of the function
@@ -1051,8 +1065,77 @@ class StaticChecker(BaseVisitor,Utils):
         # but if it doesn't return
         # then there is no type
         # in Go, we have Basic/Array/Named/Interface
-        # return what?
-    
+        # return Void, which will be used to
+        # check in visit_expr -> reject that
+        # case
+        # but in the case of visit_lhs ->
+        # accept and reject other cases
+
+        # errors:
+        # 1. Undeclared function
+        # 2. Wrong number of parameters
+        # 3.0 wrong parameters, in expr in parameters
+        # cause when visit the expr to create the type of
+        # the parameter
+        # 3. Parameters don't match
+        # 4. visit_expr and visit_stmt must
+        # check for the return type and check for that
+        # which is the wrapper
+        # just like visitId() just resolve
+        # visit_expr, visit_type would choose how 
+        # to work with that Obj
+        # now wrapper would choose how to work with
+        # the type
+        # lhs and rhs woube be just expr
+        # it is the role of the compiler
+        # to make the code different 
+        # but at this stage, it is quite the
+        # same
+
+        # get the object from visitId
+        obj = self.visitId(Id(funName), param)
+        if obj is None:
+            raise Undeclared(k=Function(), n=funName)
+        
+        elif isinstance(obj, (TypeName, Var, Const)):
+            # SOS
+            # NOT HAPPEN
+            pass
+
+        elif isinstance(obj, Func):
+            # correctly resolve
+            # check for same parameters
+            # function(a, b, 2 + 4)
+
+            # visit the args to get all the type
+            # check for the expression in that as well
+            param_types = list(map(lambda var : var.type, obj.type.params))
+            arg_types = list(map(lambda arg : self.visit_expr(arg, param), args))
+
+            if not self.check_function(param_types, arg_types):
+                raise TypeMismatch(ast)
+            
+            # it is Ok about that, then
+            # return the return type
+            # not that Void, meaning that this function
+            # doesn't have a returned value
+
+            return obj.type.result.type
+
+
+    def check_function(self, param_types, arg_types) -> bool:
+        # 1. pass the list of parameters type
+        # 2. pass the list of arguments type
+
+        # len is different
+        if len(param_types) != len(arg_types):
+            return False
+        
+        # len is the same
+        # must be same type
+        # exactly the same -> identical
+        return all(identical(t1, t2) for t1, t2 in zip(param_types, arg_types))
+
 
     def visitMethCall(self, ast, param):
         reveicer = ast.receiver
