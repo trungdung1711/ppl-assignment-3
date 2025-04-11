@@ -1900,7 +1900,7 @@ class StaticChecker(BaseVisitor,Utils):
         # or it could be Block -> create
         # a new scope and visit that
         return None
-    
+
 
     def visitForBasic(self, ast, param):
         cond = ast.cond
@@ -1934,7 +1934,6 @@ class StaticChecker(BaseVisitor,Utils):
         self.visit(loop, parameters)
 
  
-
     def visitForStep(self, ast, param):
         init = ast.init
         cond = ast.cond
@@ -2003,12 +2002,137 @@ class StaticChecker(BaseVisitor,Utils):
         self.visit(loop, parameters)
 
 
-    def visitForEach(self, param):
+    def visitForEach(self, ast, param):
+        idx = ast.idx
+        value = ast.value
+        arr = ast.arr
+        loop = ast.loop
+        scope = param['scope']
+        # this is just an empty scope
+        # look up the parent scope
+        # still relies on the old scope
+        for_scope = new_scope(parent=scope)
+        parameters = {
+            'scope' : for_scope
+        }
         # same logic as the others statement
         # create a new scope
         # assignment -> declared with the variable
         # and then visit the Block
-        return None
+        
+        # must handle the case of _
+        # for index, value := range array
+        # in the normal case
+        # we would have
+        # create index as type int
+        # value as type element in the array type
+        # and we have to ensure that array
+        # must be in Array, not any other cases
+        # raise type mismatch about this
+        # also in the case of Id(_) ->
+        # then we don't need to create a Var int
+        # just create a Var of value 
+
+        # note it is the pure assignment actually
+        # not declaration
+        # to be able to use
+        # then index must be declared -> assignment -> int -> not found -> undeclared
+        # value must be declared -> assignment -> type of element -> undeclared
+        # this is not the same as assignment, because
+        # in the case of assignment -> we declare undeclared value
+
+        # index and value must be declared before
+        # if not -> raise undeclared (not declare in the current scope)
+
+        # of the array
+        # if index is _, no need to check for
+        # for index, value := range arr
+        # we know that index and value is always Id
+        # -> search through the scope
+        # the expression must return an thing of array type
+        # we have to check that the elem type of the array
+        # match with the type of value
+        # in the case of Id('_') -> no need for declared
+
+        # we have to check that idx must be in Basic(BasicKind.INT)
+        # and type of value must match the type of the element of the
+        # return array in the expression
+
+        # there is no need to check for the declaration
+        # or assign the value of int
+
+        # checking for the array type in the expression
+        # resolve the expression type
+        # by visiting self.visit_expr
+        # if the result is not in Array
+        # raise TypeMismatch
+        # else if there is error within that expression
+        # like type mismatch -> causing error
+        # can raise undeclared
+        array_type = self.visit_expr(arr, parameters)
+
+        # in the case the result doesn't in Array
+        # but other like Basic, Named, ...
+        # it is not the array
+        if not isinstance(array_type, Array):
+            raise TypeMismatch(ast)
+
+        # checking for the index_type
+
+
+        if idx.name in ['_']:
+            pass
+
+        else:
+            # must check for the declaration
+            # if it is not declaration raise -> undeclared
+            # if it is delcaration -> getting the type
+            # this is the same as expression
+            
+            # could raise undeclared -> if it is not found
+            # could be modified to raise
+            # if resolve to something weird like function
+            # or typename
+            # can raise undeclared
+            index_type = self.visit_expr(idx, parameters)
+
+            # checking for the type of this index
+            if not identical(index_type, Basic(BasicKind.INT)):
+                raise TypeMismatch(ast)
+        
+        # checking for the value type
+        # before doing that
+        # we would have to check for the type of the expression
+
+        # now for the value
+        # checking and getting the value value
+        # if it is not declared -> raise undeclared
+        # because visit_expr can handle this well
+        # with ast.Ident
+        # obj, not in Const or Var -> may raise
+        # in the case of expecting a function
+        # but found something which is not a function
+        # SOS -> change that behaviour
+        value_type = self.visit_expr(value, parameters)
+
+        # now we have to check that
+        # the type of the value must be the same the type
+        # it must match the type of elem of the array
+        # if not -> raise type mismatch
+        # [3]int -> int, but value float -> false
+        # assume there is just one dimentional array
+        # but my assignment can handle multi-dimentional array
+        if not identical(value_type, array_type.elem):
+            raise TypeMismatch(ast)
+        
+        # now checking is done
+        # let go to the block
+        # inside this one
+        # because we don't introduce new variable
+        # we have to use the one outside this scope,
+        # thus we have to find through the parent scope for
+        # that variable
+        self.visit(loop, parameters)
 
 
     def visitContinue(self, param):
