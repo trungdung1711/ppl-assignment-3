@@ -408,6 +408,7 @@ class StaticChecker(BaseVisitor,Utils):
         # universe_scope is used for built-in things
         # global_scope is used for package
         global_scope = new_scope(parent=self.universe_scope)
+        self.setting_builtin(global_scope)
 
         parameters = {
             'pass' : 1,
@@ -454,6 +455,165 @@ class StaticChecker(BaseVisitor,Utils):
             'scope' : global_scope
         }
         self.visit(self.ast, param=parameters)
+
+
+    def setting_builtin(self, scope):
+        # define the Func object
+        # for built-in function
+        # may be used to prevent
+        # user to override these function?
+        # they are all Func obj
+        int_type = Basic(BasicKind.INT)
+        float_type = Basic(BasicKind.FLOAT)
+        bool_type = Basic(BasicKind.BOOL)
+        string_type = Basic(BasicKind.STRING)
+        void = Void()
+
+        getInt = Func(
+            parent=scope,
+            name='getInt',
+            typ=Signature(
+                recv=None,
+                params=[],
+                result=Var(None, 'return', int_type)
+            )
+        )
+
+        putInt = Func(
+            parent=scope,
+            name='putInt',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'i', int_type)],
+                result=Var(None, 'return', void)
+
+            )
+        )
+
+        putIntLn = Func(
+            parent=scope,
+            name='putIntLn',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'i', int_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        getFloat = Func(
+            parent=scope,
+            name='getFloat',
+            typ=Signature(
+                recv=None,
+                params=[],
+                result=Var(None, 'return', float_type)
+            )
+        )
+
+        putFloat = Func(
+            parent=scope,
+            name='putFloat',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'f', float_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        putFloatLn = Func(
+            parent=scope,
+            name='putFloatLn',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'f', float_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        getBool = Func(
+            parent=scope,
+            name='getBool',
+            typ=Signature(
+                recv=None,
+                params=[],
+                result=Var(None, 'return', bool_type)
+            )
+        )
+
+        putBool = Func(
+            parent=scope,
+            name='putBool',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'b', bool_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        putBoolLn = Func(
+            parent=scope,
+            name='putBoolLn',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 'b', bool_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        getString = Func(
+            parent=scope,
+            name='getString',
+            typ=Signature(
+                recv=None,
+                params=[],
+                result=Var(None, 'return', string_type)
+            )
+        )
+
+        putString = Func(
+            parent=scope,
+            name='putString',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 's', string_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        putStringLn = Func(
+            parent=scope,
+            name='putStringLn',
+            typ=Signature(
+                recv=None,
+                params=[Var(None, 's', string_type)],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        putLn = Func(
+            parent=scope,
+            name='putLn',
+            typ=Signature(
+                recv=None,
+                params=[],
+                result=Var(None, 'return', void)
+            )
+        )
+
+        # Insert all built-in functions into the scope
+        scope.insert(getInt)
+        scope.insert(putInt)
+        scope.insert(putIntLn)
+        scope.insert(getFloat)
+        scope.insert(putFloat)
+        scope.insert(putFloatLn)
+        scope.insert(getBool)
+        scope.insert(putBool)
+        scope.insert(putBoolLn)
+        scope.insert(getString)
+        scope.insert(putString)
+        scope.insert(putStringLn)
+        scope.insert(putLn)
 
 
     #==================================
@@ -764,6 +924,7 @@ class StaticChecker(BaseVisitor,Utils):
         boolean_type    = Basic(kind=BasicKind.BOOL)
         if op == StaticChecker.Operator.ADD.value:
             # +
+            # print(f'{type(type_X)} and {type(type_Y)}')
             if identical(type_X, int_type) and identical(type_Y, int_type):
                 # both int type
                 return int_type
@@ -1118,7 +1279,9 @@ class StaticChecker(BaseVisitor,Utils):
 
         recv_type = self.visit_expr(receiver, param)
 
+
         if not isinstance(recv_type, (Named, Interface)):
+            # print(metName)
             raise TypeMismatch(ast)
         
         # Named or interface type
@@ -1135,6 +1298,7 @@ class StaticChecker(BaseVisitor,Utils):
         arg_types = list(map(lambda arg : self.visit_expr(arg, param), args))
 
         if not self.check_function(param_types, arg_types):
+            # print(metName)
             raise TypeMismatch(ast)
         
         return method.type.result.type
@@ -1224,7 +1388,10 @@ class StaticChecker(BaseVisitor,Utils):
         # this one can cause error if
         # out of bound of the dimension
         # SOS
-        return reduce(lambda acc, cur: arr_type.elem, index_types, arr_type)
+        # print(f'size of index {len(index_types)}')
+
+        # 4/11/2025 -> fixing bugs not updating acc
+        return reduce(lambda acc, cur: acc.elem, index_types, arr_type)
 
 
     def check_array_cell(self, index_types) -> bool:
@@ -1267,6 +1434,7 @@ class StaticChecker(BaseVisitor,Utils):
         name = ast.name
         params = ast.params
         retType = ast.retType
+        body = ast.body
 
         if pass_num == 1:
             global_scope = param['global_scope']
@@ -1327,18 +1495,58 @@ class StaticChecker(BaseVisitor,Utils):
             obj.type.result = result_var
 
         else:
+            # this is global scope
+            scope = param['scope']
+
+            # obj of Func
+            func = scope.look_up(name)
             # TODO:
-            # Go inside a function
-            # 1. Add a child scope - function scope
-            # 2. Declare the parameter by create Var and
-            # add to the current scope
-            # 3. Add a child scope
-            # 4. Pass this child scope along side
-            # and with a flag of inside function
-            # and the return type to check for case
-            # return wrong types, or expect a return
-            # but return is given
-            pass
+            # now it is the time to go inside the function
+            # note that we have created the signature
+            # for this function, we have that Func in the
+            # global scope, before visiting the Block
+            # parameters redeclared are all handled by getting
+            # the signature, but we would have
+            # to populate the new scope of parameters
+            # and then create another new scope for the body and
+            # then visit that block
+
+            # 1. create a scope that will be used
+            # for the parameters only
+
+            parameter_scope = new_scope(parent=scope)
+
+            # and then for all the parameter
+            # we would add that Var to the current scope
+            # no need to check for
+            # redeclared parameter
+            # as we have checked that before
+            # using the global scope, allow
+            # us to find the type
+            # populate the parameter_scope
+            # with the parameters VAR created
+            # from param_decl with the type
+
+            # getting the signature and the params (List[Var])
+            # then this Var object belongs to this paramater
+            # set the name and the parent
+            for var in func.type.params:
+                parameter_scope.insert(var)
+            # for param_decl in params:
+            #     var = self.visit(param_decl, param)
+            #     parameter_scope.insert(var)
+
+
+            # used for the body scope
+            body_scope = new_scope(parent=parameter_scope)
+
+            # now we will visit the Block
+            # with the newly created body_scope
+            self.visit(body, {
+                'scope' : body_scope,
+                'signature' : func.type,
+                'pass' : pass_num
+            })
 
         # else:
         #     pass
@@ -1622,13 +1830,64 @@ class StaticChecker(BaseVisitor,Utils):
                 obj_type.add_method(func)
 
         else:
-            pass
+            # this is the global scope
+            scope = param['scope']
+            # can't reuse the logic from
+            # function declaration
+
+            # 1. create a receiver_scope
+            # populate it with the Var of the receiver
+            # the Var in the signature is used
+            # for name comparison and type only
+            receiver_scope = new_scope(parent=scope)
+            # we only have the Id('') to find the type actually
+            receiver_type = self.visit_type(recType, param)
+            receiver_var = Var(receiver_scope, receiver, receiver_type)
+            receiver_scope.insert(receiver_var)
+
+
+            # using a helper rather than reuse the logic
+            # of Function declaration
+            self.visit_method_helper(fun, {
+                'scope' : receiver_scope,
+                'named' : receiver_type,
+                'pass' : param['pass']
+            })
+
+
+    def visit_method_helper(self, ast, param):
+        scope = param['scope']
+        named = param['named']
+
+        name = ast.name
+        params = ast.params
+        retType = ast.retType
+        body = ast.body
+
+        # create the parameter_scope first
+        # before populating with the parameters
+        parameter_scope = new_scope(parent=scope)
+
+        # populate the parameters scope
+        # can we populate with the Var stored
+        for var in named.get_method(name).type.params:
+            parameter_scope.insert(var)
+
+        # now create the body_scope
+        body_scope = new_scope(parent=parameter_scope)
+        # now we are ready for the Block
+        self.visit(body, {
+            'scope' : body_scope,
+            'signature' : named.get_method(name).type,
+            'pass' : param['pass']
+        })
 
 
     def method_helper(self, ast, param):
         name = ast.name
         params = ast.params
         retType = ast.retType
+        body = ast.body
 
         signature = Signature(None, [], None)
         func = Func(None, name, signature)
@@ -1695,17 +1954,6 @@ class StaticChecker(BaseVisitor,Utils):
     def visit_stmt(self, ast, param):
         # wrapper to handle statement in the block
 
-        # before doing that we have a block, create new scope
-        # set up the signature?
-        # variable declaration
-        # const declaration
-        # assignment
-        # if -> new scope
-        # for -> new scope
-        # break
-        # continue
-        # call statement -> check for return void(func, meth)
-        # return must check the current function return type
         if isinstance(ast, VarDecl):
             self.visit(ast, param)
 
@@ -1719,40 +1967,49 @@ class StaticChecker(BaseVisitor,Utils):
             self.visit(ast, param)
 
         elif isinstance(ast, ForBasic):
-            pass
+            self.visit(ast, param)
 
         elif isinstance(ast, ForStep):
-            pass
+            self.visit(ast, param)
 
         elif isinstance(ast, ForEach):
-            pass
+            self.visit(ast, param)
 
         elif isinstance(ast, Break):
-            pass
+            self.visit(ast, param)
 
         elif isinstance(ast, Continue):
-            pass
+            self.visit(ast, param)
 
-        elif isinstance(ast, MethCall):
+        elif isinstance(ast, (FuncCall, MethCall)):
             # must check for return type
-            pass
+            # can be considered as expression
+            # 4/11/2025, fixing bugs can't reuse visit_expr
+            # because visit_expr would prevent the return nothing
+            # by using Void() -> then in this case, we
+            # have to separate it, expression return type
+            return_type = self.visit(ast, param)
+            # if identical(typ, Void()):
+            #     raise TypeMismatch(ast)
 
-        elif isinstance(ast, FuncCall):
-            # must check for return type
-            pass
+            if not identical(return_type, Void()):
+                # representing return nothing
+                raise TypeMismatch(ast)
+            
+            # no need to return this stmt
 
         elif isinstance(ast, Return):
             # must check for function signature
-            pass
+            self.visit(ast, param)
 
         else:
-            pass
+            self.visit(ast, param)
 
 
     def visitAssign(self, ast, param):
         scope = param['scope']
-        lhs = self.lhs
-        rhs = self.rhs
+        lhs = ast.lhs
+        rhs = ast.rhs
 
         '''
         // if it is declared -> assigned -> check for type
@@ -1895,6 +2152,8 @@ class StaticChecker(BaseVisitor,Utils):
         thenStmt = ast.thenStmt
         elseStmt = ast.elseStmt
         scope = param['scope']
+        signature = param['signature']
+        pass_num = param['pass']
 
         # check for the condition
         # to have Basic(BasicKind.BOOL)
@@ -1928,7 +2187,9 @@ class StaticChecker(BaseVisitor,Utils):
         then_scope = new_scope(parent=scope)
         # then we visit it with a newly created scope
         self.visit(thenStmt, {
-            'scope' : then_scope
+            'scope' : then_scope,
+        'signature' : signature,
+        'pass'      : pass_num
         })
 
         # 3. If in the elseStmt, there is another Block
@@ -1943,7 +2204,9 @@ class StaticChecker(BaseVisitor,Utils):
             # and visit that
             else_scope = new_scope(parent=scope)
             self.visit(elseStmt, {
-                'scope' : else_scope
+                'scope' : else_scope,
+            'signature' : signature,
+            'pass'      : pass_num
             })
 
         elif isinstance(elseStmt, If):
@@ -1960,13 +2223,17 @@ class StaticChecker(BaseVisitor,Utils):
         # just check for the condition of boolean type
         # create another scope and call visit Block
         scope = param['scope']
+        signature = param['signature']
+        pass_num = param['pass']
         # create a new scope from this current scope
         for_scope = new_scope(parent=scope)
 
         # setting a new parameters with
         # a new scope to use
         parameters = {
-            'scope' : for_scope
+            'scope' : for_scope,
+        'signature' : signature,
+        'pass'      : pass_num
         }
 
         # check for the type of the expression to
@@ -1992,6 +2259,8 @@ class StaticChecker(BaseVisitor,Utils):
         loop = ast.loop
         # getting the current scope
         scope = param['scope']
+        signature = param['signature']
+        pass_num = param['pass']
         # for a := 1 ; a < 100 ; a := a + 1 {}
 
         # so it is just assignment
@@ -2003,7 +2272,9 @@ class StaticChecker(BaseVisitor,Utils):
         for_scope = new_scope(parent=scope)
         # then using this scope from now one
         parameters = {
-            'scope' : for_scope
+            'scope' : for_scope,
+        'signature' : signature,
+        'pass'      : pass_num
         }
 
         # now visit the init
@@ -2059,6 +2330,9 @@ class StaticChecker(BaseVisitor,Utils):
         arr = ast.arr
         loop = ast.loop
         scope = param['scope']
+        signature = param['signature']
+        pass_num = param['pass']
+
         # this is just an empty scope
         # look up the parent scope
         # still relies on the old scope
@@ -2118,7 +2392,9 @@ class StaticChecker(BaseVisitor,Utils):
         # like type mismatch -> causing error
         # can raise undeclared
         array_type = self.visit_expr(arr, {
-            'scope' : for_scope
+            'scope' : for_scope,
+        'signature' : signature,
+        'pass'      : pass_num
         })
 
         # in the case the result doesn't in Array
@@ -2145,7 +2421,9 @@ class StaticChecker(BaseVisitor,Utils):
             # or typename
             # can raise undeclared
             index_type = self.visit_expr(idx, {
-                'scope' : for_scope
+                'scope' : for_scope,
+            'signature' : signature,
+            'pass'      : pass_num
             })
 
             # checking for the type of this index
@@ -2165,7 +2443,11 @@ class StaticChecker(BaseVisitor,Utils):
         # in the case of expecting a function
         # but found something which is not a function
         # SOS -> change that behaviour
-        value_type = self.visit_expr(value, parameters)
+        value_type = self.visit_expr(value, {
+            'scope' : for_scope,
+        'signature' : signature,
+        'pass'      : pass_num
+        })
 
         # now we have to check that
         # the type of the value must be the same the type
@@ -2178,13 +2460,17 @@ class StaticChecker(BaseVisitor,Utils):
             raise TypeMismatch(ast)
         
         # now checking is done
-        # let go to the block
+        # let's go into the block
         # inside this one
         # because we don't introduce new variable
         # we have to use the one outside this scope,
         # thus we have to find through the parent scope for
         # that variable
-        self.visit(loop, parameters)
+        self.visit(loop, {
+            'scope' : for_scope,
+        'signature' : signature,
+        'pass'      : pass_num
+        })
 
 
     def visitContinue(self, ast, param):

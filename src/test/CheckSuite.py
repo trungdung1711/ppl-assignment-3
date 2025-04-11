@@ -1014,7 +1014,12 @@ class CheckSuite(unittest.TestCase):
         }
 
 
-        func add5(a int, b int, c int, d int, e int) {
+        func add5(a int, b int, c int, d int, e int) int{
+            var a int = 1
+            var b int = 2 + a
+            var c int = a + b - (c * d)/ a / b
+            var d int = (a - b - c)% (c - d * a * b) 
+            var e int = (a + b + c + d )/(a - b - c - d)*(128 - 45)
             return a + b + c + d + e
         }
 
@@ -1216,7 +1221,7 @@ class CheckSuite(unittest.TestCase):
         }
 
         func (p Player) Weapon(num int) Weapon {
-            return weapons[num]
+            return p.weapons[2]
         }
 
         func (p Player) Attack(e Player) int{
@@ -1419,57 +1424,159 @@ class CheckSuite(unittest.TestCase):
         input = \
         '''
         func main() {
-            var a int = 100
+            var i = 0
+
+            // a new Var(i) is created
+            // in the scope of for
+            // or just use i in the outter scope
+            for i := 0 ; i < 100 ; i := i + 1 {
+                i := i + 2
+            }
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,457))
+
 
     def test_458(self):
         input = \
         '''
         func main() {
             var a int = 100
+
+            if (1 == 2) {
+                a := 1
+            } else if (2 == 3) {
+                b := 2
+            } else if (5 == 3) {
+                c := 2
+            } else {
+                d := 2
+            }
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,458))
 
-    def test_459(self):
+
+    def test_459_s(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        func foo() int {
+            var a = 1;
+            if (a < 3) {
+                var a = 1;
+            } else if(a > 2) {
+                var a = 2;
+            }
+            return a;
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,459))
 
-    def test_460(self):
+
+    def test_460_s(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        func foo() int {
+            var arr [3] int;
+            var marr [2][3] int;
+            arr := [3]int{10, 20, 30}
+            marr := [2][3]int{{1, 2, 3}, {4, 5, 6}}
+            return arr[2] + marr[1][2]
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,460))
+
 
     def test_461(self):
         input = \
         '''
         func main() {
             var a int = 100
+            var b int = 200
+            var c float = b
+            var d = true
+            const SIZE = 100
+            var arr [SIZE]int = [SIZE]int{1, 2, 3, 0}
+
+            break
+            continue
+            for i:=0; i< SIZE; i += 1 {
+                var a int = 100
+                a := i + 100
+            }
+            return
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,461))
+
 
     def test_462(self):
         input = \
         '''
         func main() {
             var a int = 100
+
+            var e Entity = Human{}
+            if (e.getName() == "Dung") {
+                e.dead()
+            }
+
+            return
+        }
+
+        type Money struct {
+            value int
+        }
+
+        type Entity interface {
+            getName() string
+            isAlive() boolean
+            dead()
+        }
+
+        func deleteHuman(h Human) boolean{
+            if (h.isPoor()) {
+                h.isDead := true
+                return true
+            } else {
+                return false
+            }
+        }
+
+        func (h Human) getName() string {
+            return h.name
+        }
+
+        func (human Human) isAlive() boolean {
+            return human.isDead
+        }
+
+        func (h Human) dead() {
+            h.isDead := true
+        }
+
+        func (h Human) isPoor() boolean {
+            if (calculateMoney(h.moneys) == 0) {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        func calculateMoney(m [100]Money) int {
+            return 100
+        }
+
+        type Human struct {
+            name string
+            age int
+            moneys [100]Money
+            isDead boolean
         }
         '''
         expect = ''
@@ -1481,9 +1588,36 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        func function(a int, b float, c [3][3][3]int) [5][5]int {
+            var a int = 100
+            var b string = "String"
+            var matrix [5][5]float
+
+            return [5][3]int{1, 2, 3, 4, 5, 5}
+        }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Return(
+                ArrayLiteral(
+                    [
+                        IntLiteral(5),
+                        IntLiteral(3)
+                    ],
+                    IntType(),
+                    [
+                        IntLiteral(1),
+                        IntLiteral(2),
+                        IntLiteral(3),
+                        IntLiteral(4),
+                        IntLiteral(5),
+                        IntLiteral(5)
+                    ]
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,463))
+
 
     def test_464(self):
         input = \
@@ -1491,9 +1625,14 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        func putLn() string {
+            return "\\n"
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.FUNCTION, 'putLn')
         self.assertTrue(TestChecker.test(input,expect,464))
+
 
     def test_465(self):
         input = \
@@ -1501,19 +1640,34 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+
+        func getInt() int {
+            return 100
+        }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.FUNCTION, 'getInt')
         self.assertTrue(TestChecker.test(input,expect,465))
+
 
     def test_466(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            a := 100
+            b := [4]int{1, 2, 3, 4}
+            a := 200
+            b := 5
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('b'),
+                IntLiteral(5)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,466))
+
 
     def test_467(self):
         input = \
@@ -1521,45 +1675,171 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        type Animal struct {
+            name string
+            age int
+            dam float
+        }
+
+        // different scope
+        func (a Animal) eat(a Animal, b Animal, c Animal) int {
+            var a int = 100
+            var c float = a
+            return a
+        }
+
+        func (a Animal) attack() float {
+            return a.dam
+
+            var a [3][5]float
+
+            return a[4.5][4]
+        }
         '''
-        expect = ''
+        expect = type_mismatch(
+            ArrayCell(
+                Id('a'),
+                [
+                    FloatLiteral(4.5),
+                    IntLiteral(4)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,467))
+
 
     def test_468(self):
         input = \
         '''
+        type Human struct {
+            blood int
+        }
+
+        func (h Human) is_alive() boolean {
+            if (h.blood == 0) {
+            return false 
+            } else {
+                return true
+            }
+        }
+
+        func date() string {
+            return "4/11/2025"
+        }
+
         func main() {
-            var a int = 100
+            const SIZE = 2 * 3
+            k := Killer{}
+            humans := [SIZE]Human{1, 2, 3}
+
+            k.kill(humans[1])
+
+            k.killAll(humans)
+
+            serial_killer_case([10]Human{1, 2, 3})
+        }
+
+        type Weapon struct {
+            damage int;
+            crit int;
+        }
+        
+        type Killer struct {
+            name string;
+            age int;
+            weapons [10]Weapon
+        }
+
+        func (killer Killer) killAll(humans [6]Human) {
+            for i := 0; i < 6 ; i += 1 {
+                killer.kill(humans[i])
+            }
+        }
+        
+        func (k Killer) kill(h Human) {
+            for h.is_alive() {
+                if (date() == "Fri 13th") {
+                    h.blood -= k.weapons[1].crit
+                }
+                h.blood -= k.weapons[1].damage
+            }
+        }
+
+        func serial_killer_case(humans [10]Human) {
+            var i int = 0
+            var h Human
+            for i, h := range humans {
+                break
+            }
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,468))
 
+
     def test_469(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        func main() [3]string {
+            var arr [3]string = [3]string { "Hello", "World", "MiniGo", Human{name : "Dung", age : 18} } ;
+            return arr;
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,469))
 
+
     def test_470(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        func foo() [2] float {
+            return [2] float {1.0, 2.0};
+            return [2] int {1, 2};
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Return(
+                ArrayLiteral(
+                    [
+                        IntLiteral(2)
+                    ],
+                    IntType(),
+                    [
+                        IntLiteral(1),
+                        IntLiteral(2)
+                    ]
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,470))
 
-    def test_471(self):
+
+    def test_all_built_in_functions(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            // testing a normal function
+            a := getInt()
+            putInt(a)
+            putIntLn(a)
+
+            b := getFloat()
+            putFloat(b)
+            putFloatLn(b)
+
+            c := getBool()
+            putBool(c)
+            putBoolLn(c)
+
+            d := getString()
+            d := d + d + d + d + d
+            putString(d)
+            putStringLn(d)
+
+            result := "End of the program"
+            putStringLn(result)
+            putLn()
         }
         '''
         expect = ''
@@ -1825,6 +2105,7 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,497))
 
+
     def test_498(self):
         input = \
         '''
@@ -1834,6 +2115,7 @@ class CheckSuite(unittest.TestCase):
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,498))
+
 
     def test_499(self):
         input = \
@@ -1845,11 +2127,12 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,499))
 
+
     def test_500(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a float = 4.5
         }
         '''
         expect = ''
