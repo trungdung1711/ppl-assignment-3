@@ -1326,7 +1326,7 @@ class StaticChecker(BaseVisitor,Utils):
             result_var = Var(None, 'return', result_type)
             obj.type.result = result_var
 
-        elif pass_num == 4:
+        else:
             # TODO:
             # Go inside a function
             # 1. Add a child scope - function scope
@@ -1340,8 +1340,8 @@ class StaticChecker(BaseVisitor,Utils):
             # but return is given
             pass
 
-        else:
-            pass
+        # else:
+        #     pass
 
 
     def visitParamDecl(self, ast, param):
@@ -1716,7 +1716,7 @@ class StaticChecker(BaseVisitor,Utils):
             self.visit(ast, param)
 
         elif isinstance(ast, If):
-            pass
+            self.visit(ast, param)
 
         elif isinstance(ast, ForBasic):
             pass
@@ -1891,15 +1891,66 @@ class StaticChecker(BaseVisitor,Utils):
 
 
     def visitIf(self, ast, param):
-        # check for the condition
-        # create a new scope
-        # visit the Block (if then)
+        expr = ast.expr
+        thenStmt = ast.thenStmt
+        elseStmt = ast.elseStmt
+        scope = param['scope']
 
-        # for the else part
-        # it could be another If -> visitIf
-        # or it could be Block -> create
-        # a new scope and visit that
-        return None
+        # check for the condition
+        # to have Basic(BasicKind.BOOL)
+
+        # because thenStmt would be a block
+        # we would create a new scope
+        # and visit that one
+
+        # for the elseStmt
+        # this can be another If
+        # or this can be another Block
+        # or this can be None
+        # if this is None -> skip
+
+        # if this is another If
+        # then we don't have to create
+        # a new scope, just visit it normally
+        
+        # if this is the Block
+        # meaning it is just an normal Else
+        # then a new scope is created and visit that block
+
+        # TODO
+        # 1. we have to check for the condition of the current If
+        condition_type = self.visit_expr(expr, param)
+
+        if not identical(condition_type, Basic(BasicKind.BOOL)):
+            raise TypeMismatch(ast)
+        # 2. then we could create a new scope
+        # and visit the Block in the then
+        then_scope = new_scope(parent=scope)
+        # then we visit it with a newly created scope
+        self.visit(thenStmt, {
+            'scope' : then_scope
+        })
+
+        # 3. If in the elseStmt, there is another Block
+        # we create a new Scope and visit that
+        # but if there is an If inside that, we simply visit that
+        if elseStmt is None:
+            pass
+
+        elif isinstance(elseStmt, Block):
+            # then this is the else part
+            # we would create a new scope
+            # and visit that
+            else_scope = new_scope(parent=scope)
+            self.visit(elseStmt, {
+                'scope' : else_scope
+            })
+
+        elif isinstance(elseStmt, If):
+            # then it is just like else if
+            # simply visit that
+            # don't create new scope
+            self.visit(elseStmt, param)
 
 
     def visitForBasic(self, ast, param):
