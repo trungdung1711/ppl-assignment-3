@@ -1,8 +1,13 @@
 package main
 
+var GLOBAL int = 100
+
 func main() {
-	var arr [2][2]int = [2][2]int{{1, 2}, {3, 4}}
-	println(arr[1][1][1])
+	// in Go := is used for short declaration
+	a := 100
+	println(a)
+	// assignment
+	GLOBAL = 200
 }
 
 type Human struct {

@@ -1039,7 +1039,7 @@ class StaticChecker(BaseVisitor,Utils):
         # return Void, which will be used to
         # check in visit_expr -> reject that
         # case
-        # but in the case of visit_lhs ->
+        # but in the case of visit lhs ->
         # accept and reject other cases
 
         # errors:
@@ -1686,6 +1686,121 @@ class StaticChecker(BaseVisitor,Utils):
         # 1. getting the type of the right hand side
         # 2. catching errors like undeclared
         rhs_type = self.visit_expr(rhs, param)
+
+        if isinstance(lhs, (FieldAccess, ArrayCell)):
+            # visit this expression
+            # to get the type
+            # and check for type mismatch in
+            # this assignment, note that
+            # there are all expressions
+            # then we can use expression returned type
+            # to check, this is for type mismatch
+            # the compiler in later phases
+            # must ensure this meant to be writes
+            # not load, but in this case
+            # it is just like others normal expression
+            # getting the two expression
+            # an call check_assign
+
+            # which will cause error just like an expression
+            # no field
+            # field access causes error if not int
+            lhs_type = self.visit_expr(lhs, param)
+
+            if not self.check_assign(lhs_type, rhs_type):
+                raise TypeMismatch(ast)
+            
+            # It is OK with that assignment
+            return
+
+        elif isinstance(lhs, Id):
+            name = lhs.name
+            # look up the scope
+            # if found obj of Const/Var
+            # then getting the type and call check_var
+
+            # else not found
+            # create a new Var with the Type getting
+            # from the right hand side
+            # adding Var into the current scope
+
+            # 1. we would found the Id in the scope chain
+            obj = self.visit(lhs, param)
+
+            if obj is None:
+                # meaning that we don't find any
+                # then, we can think this is
+                # a new declaration
+                # create a new obj of type Var
+                # with the type of the rhs
+                new_var = Var(scope, name, rhs_type)
+                scope.insert(new_var)
+
+            elif isinstance(obj, (TypeName, Func, Const)):
+                # SOS
+                # NOT HAPPEN
+                pass
+
+            elif isinstance(obj, Var):
+                # assignment for this variable
+                # found, then we would check for
+                # the check_assign between the two
+                lhs_type = obj.type
+                if not self.check_assign(lhs_type, rhs_type):
+                    raise TypeMismatch(ast)
+
+
+    def check_assign(self, lhs_type, rhs_type) -> bool:
+        if identical(lhs_type, rhs_type):
+            # assign the type of any
+            return True
+        
+        elif identical(lhs_type, Basic(BasicKind.FLOAT)) and \
+             identical(rhs_type, Basic(BasicKind.INT)):
+            # assign the type of float
+            return True
+        
+        elif isinstance(lhs_type, Array) and isinstance(rhs_type, Array):
+            # print('check')
+            # print(f'{init_type.len} and {expr_type.len}')
+            return self.check_array(lhs_type, rhs_type)
+        
+        elif isinstance(lhs_type, Interface) and isinstance(rhs_type, Named):
+            return self.check_interface(lhs_type, rhs_type)
+        
+        else:
+            return identical(lhs_type, rhs_type)
+
+
+    def visit_lhs(self, ast, param):
+        # there is only 3 cases
+        # field_access
+        # array_index
+        # and ID
+
+        # in the case of field_access
+        # visit_expr -> return the type
+        # which is used to compare with
+        # the type of the rhs (check-var)
+
+        # in the case array_access
+        # visit_expr -> return the type
+        # which will be used to compare with 
+        # the type of the rhs
+
+        # in the case of Id
+        # case 1: -> resolve
+        # and we found a declared variable in the scope chain
+        # then it is an assignment :=
+        # then we return the type for
+        # type checking
+
+        # case 2: -> there is no
+        # declaration about that
+        # then this becomes a declaration
+        # create Var and use the type of the rhs
+        # add this to the current scope
+        pass
 
 
     def visitIf(self, param):
