@@ -506,7 +506,9 @@ class StaticChecker(BaseVisitor,Utils):
             scope = param['scope']
             scope.resolve(name).set_declared()
             
-        elif pass_num == 4:
+        # elif pass_num == 4:
+        # default behaviour
+        else:
             scope = param['scope']
             if scope.look_up(name) is not None:
                 raise Redeclared(k=Variable(), n=name)
@@ -540,8 +542,8 @@ class StaticChecker(BaseVisitor,Utils):
 
                 scope.insert(obj)
 
-        else:
-            pass
+        # else:
+        #     pass
 
 
     def check_array(self, t1: Array, t2: Array) -> bool:
@@ -644,7 +646,9 @@ class StaticChecker(BaseVisitor,Utils):
             scope = param['scope']
             scope.resolve(name).set_declared()
 
-        elif pass_num == 4:
+        # elif pass_num == 4:
+        # default and main pass
+        else:
             scope = param['scope']
 
             # 1. Check for redeclared
@@ -669,9 +673,8 @@ class StaticChecker(BaseVisitor,Utils):
                     pass
 
                 scope.insert(obj)
-
-        else:
-            pass
+        # else:
+        #     pass
 
     class Operator(Enum):
         ADD     = '+'
@@ -1008,10 +1011,6 @@ class StaticChecker(BaseVisitor,Utils):
 
     def visitNilLiteral(self, ast, param):
         return None
-
-
-    def visit_stmt(self, ast, param):
-        pass
 
 
     #==================================
@@ -1658,9 +1657,97 @@ class StaticChecker(BaseVisitor,Utils):
         return func
 
 
-    def visitBlock(self, param):
-        return None
+    def visitBlock(self, ast, param):
+        member = ast.member
+        # the scope is created in the fist place
+        # we don't need to worry about that
+        # just use the current scope and
+        # call visit_stmt wrapper
+        # using the current scope
+        # in nested statement
+        # when a scope is created
+        # we add it to the child of the current scope
+        # and using the new scope
+        # from that point
+
+        # param stores the current scope
+        # meet something like if ->
+        # the scope from that point is created
+        # with the child
+        # but for this the scope doesn't change
+        # at all
+        # meaning that we are operating in the same scope
+
+        # note that we have to
+        # store the function's signature
+        # or to tell that we are in the function
+        # when we meet the return statement
+        # we would get the value -> to check
+        # because return can be in any block
+        # actually
+
+        # wrong placement of break, continue, return
+        # are not being checked in this case
+        for m in member:
+            self.visit_stmt(m, param)
  
+
+    def visit_stmt(self, ast, param):
+        # wrapper to handle statement in the block
+
+        # before doing that we have a block, create new scope
+        # set up the signature?
+        # variable declaration
+        # const declaration
+        # assignment
+        # if -> new scope
+        # for -> new scope
+        # break
+        # continue
+        # call statement -> check for return void(func, meth)
+        # return must check the current function return type
+        if isinstance(ast, VarDecl):
+            self.visit(ast, param)
+
+        elif isinstance(ast, ConstDecl):
+            self.visit(ast, param)
+
+        elif isinstance(ast, Assign):
+            self.visit(ast, param)
+
+        elif isinstance(ast, If):
+            pass
+
+        elif isinstance(ast, ForBasic):
+            pass
+
+        elif isinstance(ast, ForStep):
+            pass
+
+        elif isinstance(ast, ForEach):
+            pass
+
+        elif isinstance(ast, Break):
+            pass
+
+        elif isinstance(ast, Continue):
+            pass
+
+        elif isinstance(ast, MethCall):
+            # must check for return type
+            pass
+
+        elif isinstance(ast, FuncCall):
+            # must check for return type
+            pass
+
+        elif isinstance(ast, Return):
+            # must check for function signature
+            pass
+
+        else:
+            pass
+
 
     def visitAssign(self, ast, param):
         scope = param['scope']
@@ -1803,19 +1890,124 @@ class StaticChecker(BaseVisitor,Utils):
         pass
 
 
-    def visitIf(self, param):
+    def visitIf(self, ast, param):
+        # check for the condition
+        # create a new scope
+        # visit the Block (if then)
+
+        # for the else part
+        # it could be another If -> visitIf
+        # or it could be Block -> create
+        # a new scope and visit that
         return None
     
 
-    def visitForBasic(self, param):
-        return None
+    def visitForBasic(self, ast, param):
+        cond = ast.cond
+        loop = ast.loop
+        # same logic
+        # just check for the condition of boolean type
+        # create another scope and call visit Block
+        scope = param['scope']
+        # create a new scope from this current scope
+        for_scope = new_scope(parent=scope)
+
+        # setting a new parameters with
+        # a new scope to use
+        parameters = {
+            'scope' : for_scope
+        }
+
+        # check for the type of the expression to
+        # be boolean in the for loop
+        # same thing, from this empty scope
+        # or from the current scope, that is the same thing
+        condition_type = self.visit_expr(cond, parameters)
+
+        if not identical(condition_type, Basic(BasicKind.BOOL)):
+            raise TypeMismatch(ast)
+        
+        # condition is correct
+        # now, it is the time to
+        # play inside the block
+        # with a newly create scope
+        self.visit(loop, parameters)
+
  
 
-    def visitForStep(self, param):
-        return None
+    def visitForStep(self, ast, param):
+        init = ast.init
+        cond = ast.cond
+        upda = ast.upda
+        loop = ast.loop
+        # getting the current scope
+        scope = param['scope']
+        # for a := 1 ; a < 100 ; a := a + 1 {}
+
+        # so it is just assignment
+        # find through the scope chain
+        # and assign that value
+        # or declaration
+        # create new value in the current scope
+        # new scope from here
+        for_scope = new_scope(parent=scope)
+        # then using this scope from now one
+        parameters = {
+            'scope' : for_scope
+        }
+
+        # now visit the init
+        # which can be either assignment/declaration
+        # which can create a new Var (assingment logic)
+        # create a new Var if no declaration before
+        # or it is just simple assignment
+        # for declaration inside var as well, 
+        # which case raise error in itself
+
+        # just treat them as the normal statement
+        # if there is error ->
+        # then this is because of the statement
+        # not about this for statement
+        # using the new for_scope
+        # using the current scope
+        # visit_stmt will add new 
+        # Var to the current scope
+        # So it is up-to-date
+        self.visit_stmt(init, parameters)
+
+        # now, checking for the return turn of the expression
+        # if there is type mismatch in this expression
+        # raise exception in this expression
+        condition_type = self.visit_expr(cond, parameters)
+
+        # but in the case of not boolean type
+        # then although this expression is correct
+        # but in the case of the ForStep
+        # it is totally wrong -> raise
+        if not identical(condition_type, Basic(BasicKind.BOOL)):
+            raise TypeMismatch(ast)
+        
+        # condition type is totally correct
+        # then checking for the update
+        # which is a normal assign, and we can consider
+        # it is a statement, if it is not declared -> declared
+        # continue to visit that assignment
+        # should be pure assignment
+        # not declare in this case
+        self.visit_stmt(upda, parameters)
+
+        # after preparation
+        # it is the time we could visit
+        # the block of the for loop
+        # with the newly created scope
+        self.visit(loop, parameters)
 
 
     def visitForEach(self, param):
+        # same logic as the others statement
+        # create a new scope
+        # assignment -> declared with the variable
+        # and then visit the Block
         return None
 
 
@@ -1828,4 +2020,9 @@ class StaticChecker(BaseVisitor,Utils):
     
 
     def visitReturn(self, param):
+        # we have the wrapper
+        # then we could check for the return
+        # type
+        # wrapper would send this status code
+        # for this to realize and raise error
         return None
