@@ -2063,9 +2063,6 @@ class StaticChecker(BaseVisitor,Utils):
         # look up the parent scope
         # still relies on the old scope
         for_scope = new_scope(parent=scope)
-        parameters = {
-            'scope' : for_scope
-        }
         # same logic as the others statement
         # create a new scope
         # assignment -> declared with the variable
@@ -2120,7 +2117,9 @@ class StaticChecker(BaseVisitor,Utils):
         # else if there is error within that expression
         # like type mismatch -> causing error
         # can raise undeclared
-        array_type = self.visit_expr(arr, parameters)
+        array_type = self.visit_expr(arr, {
+            'scope' : for_scope
+        })
 
         # in the case the result doesn't in Array
         # but other like Basic, Named, ...
@@ -2145,7 +2144,9 @@ class StaticChecker(BaseVisitor,Utils):
             # if resolve to something weird like function
             # or typename
             # can raise undeclared
-            index_type = self.visit_expr(idx, parameters)
+            index_type = self.visit_expr(idx, {
+                'scope' : for_scope
+            })
 
             # checking for the type of this index
             if not identical(index_type, Basic(BasicKind.INT)):
@@ -2186,18 +2187,58 @@ class StaticChecker(BaseVisitor,Utils):
         self.visit(loop, parameters)
 
 
-    def visitContinue(self, param):
+    def visitContinue(self, ast, param):
+        # doing nothing
         return None
-    
 
-    def visitBreak(self, param):
+
+    def visitBreak(self, ast, param):
+        # doing nothing
         return None
-    
 
-    def visitReturn(self, param):
+
+    def visitReturn(self, ast, param):
+        # note that return can be anywhere
+        # inside the function
+        # then at the function level, we will create
+        # another type, to carry through the param
+        # when return statement is meet, just get that
+        # value out and check?
+
+        # visit expression
+        # can cause error related to that expression
+        # represent the fact return nothing
+        # == the value returned back is Void
+        expr = ast.expr
+        if expr is None:
+            return_type = Void()
+
+        else:
+            return_type = self.visit_expr(expr, param)
+        
+        signature = param['signature']
+        declared_return_type = signature.result.type
+
+        if not identical(return_type, declared_return_type):
+            raise TypeMismatch(ast)
+
+        # if the function return nothing -> Void
+        # but it return a expr
+
+        # if we have return
+        # then we have to check
+        # but if there is no return
+        # then we don't have to check
+        # the signature
+        # void -> return must contain nothing
+        # something -> return must return something
+        # return wrong -> raise
+
+        # case signature int -> there is
+        # no return -> SOS NOT HAPPEN
+
         # we have the wrapper
         # then we could check for the return
         # type
         # wrapper would send this status code
         # for this to realize and raise error
-        return None
