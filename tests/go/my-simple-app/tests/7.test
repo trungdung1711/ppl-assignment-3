@@ -1,0 +1,21 @@
+package main
+
+var SomeType int = 100
+
+type Human struct {
+    arr [4]int
+    name string
+    h *Human
+    s SomeType
+}
+
+func doSomething(a, b int) {
+
+}
+
+func main() {
+    doSomething(100, 200) // Func
+    var a int = 200     // Var
+    const b = ""    // Const
+    var a Human; // TypeName
+}

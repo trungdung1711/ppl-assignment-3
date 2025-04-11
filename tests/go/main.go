@@ -1,23 +1,17 @@
 package main
 
+var GLOBAL int = 100
+
 func main() {
-	function()
-	var animal Animal = Animal{name: "Tom"}
-	animal.function()
+	// in Go := is used for short declaration
+	a := 100
+	println(a)
+	// assignment
+	GLOBAL = 200
 }
 
-type Animal struct {
-	name string
-}
-
-func function() int {
-	return 100
-}
-
-func (a *Animal) function() int {
-	return 100
-}
-
-type Human interface {
-	getName() string
+type Human struct {
+	name  string
+	age   int8
+	float float32
 }

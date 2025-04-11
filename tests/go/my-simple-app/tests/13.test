@@ -1,0 +1,9 @@
+package main
+
+type function struct {
+    a int
+    b string
+}
+
+
+var b int = function(1, 2, 3)

@@ -1,0 +1,10 @@
+package main
+
+func main() {
+    var a int = Human * 100
+}
+
+type Human struct {
+    name string
+    age float32
+}

@@ -1,7 +1,7 @@
 # /bin/zsh
-toilet --metal -t --font mono12  "gen"
+toilet -f smblock --metal "gen"
 python run.py gen
 
 
-toilet --metal -t --font mono12  "semantic"
+toilet -f smblock --metal "semantic"
 python run.py test CheckSuite

@@ -4,9 +4,9 @@ from MiniGoVisitor import MiniGoVisitor
 from MiniGoParser import MiniGoParser
 from AST import *
 
+
+
 class ASTGeneration(MiniGoVisitor):
-
-
     '''
     #==============================
     AST: AST.IntLiteral

@@ -1,0 +1,15 @@
+package main
+
+
+func (h *Human) name(a string, b float, c int, a string) {
+
+}
+
+type Human struct {
+    name string
+    age float
+    son int
+}
+
+func main() {
+}

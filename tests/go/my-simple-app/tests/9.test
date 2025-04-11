@@ -1,0 +1,19 @@
+package main
+
+type Human struct {
+    name string
+}
+
+func doSomething() {
+
+}
+
+func main() {
+    // problem is ast.Ident in
+    // when resolve
+    // always resolve to Object
+    // can be TypeName, Func, Const, Var
+    // In the expression, how to check?
+    var h Human;
+    var a int = -doSomething
+}
