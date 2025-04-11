@@ -1845,15 +1845,22 @@ class CheckSuite(unittest.TestCase):
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,471))
 
-    def test_472(self):
+
+    def test_wrong_Object_of_identifier(self):
         input = \
         '''
+        type Human struct {
+            name string
+            age int
+        }
         func main() {
-            var a int = 100
+            var a int = Human // this is the typename
+            // although we found that
         }
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.IDENTIFIER, 'Human')
         self.assertTrue(TestChecker.test(input,expect,472))
+
 
     def test_473(self):
         input = \
@@ -1861,25 +1868,61 @@ class CheckSuite(unittest.TestCase):
         func main() {
             var a int = 100
         }
+
+        func foo() int {
+            a := foo()
+            var foo int = 100
+            b := foo()
+        }
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.FUNCTION, 'foo')
         self.assertTrue(TestChecker.test(input,expect,473))
+
 
     def test_474(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        type K struct {
+            a int
         }
+
+        func (k K) koo(a [5] int) {
+            return
+        }
+
+        type H interface {
+            koo(a [5] int)
+        }
+
+        const c = 4
+
+        func foo() {
+            var k H
+            k.koo([5] int {1,2,3})
+        } 
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,474))
 
+
     def test_475(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        type Person struct {
+            name string ;
+            age int ;
+        }
+
+        func  doSomething()  {
+            var person = Person{name: "Alice", age: 30}
+            person.name := "John";
+            person.age := 30;
+            putStringLn(person.name)
+            putStringLn(person.Greet())
+        }
+
+        func (p Person) Greet() string {
+            return "Hello, " + p.name
         }
         '''
         expect = ''
@@ -1888,221 +1931,475 @@ class CheckSuite(unittest.TestCase):
     def test_476(self):
         input = \
         '''
-        func main() {
-            var a int = 100
+        var a = foo();
+        func foo () int {
+            var a =  koo();
+            var c = getInt();
+            putInt(c);
+            putIntLn(c);
+            return 1;
+        }
+        var d = foo();
+        func koo () int {
+            var a =  foo ();
+            return 1;
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,476))
+
 
     def test_477(self):
         input = \
         '''
         func main() {
             var a int = 100
+            var a string = "hello"
         }
         '''
-        expect = ''
+        expect = redeclared(ErrorKind.VARIABLE, 'a')
         self.assertTrue(TestChecker.test(input,expect,477))
+
 
     def test_478(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            b := b + 100
         }
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.IDENTIFIER, 'b')
         self.assertTrue(TestChecker.test(input,expect,478))
+
 
     def test_479(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            // var arr [10]float = [10]float{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+
+            arr := true
+
+            var value float
+            for _, value := range arr {
+                putFloatLn(value)
+            }
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            ForEach(
+                Id('_'),
+                Id('value'),
+                Id('arr'),
+                Block(
+                    [
+                        FuncCall('putFloatLn', [Id('value')])
+                    ]
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,479))
+
 
     def test_480(self):
         input = \
         '''
+        func DoSomething() string {
+            return "done"
+        }
+
         func main() {
-            var a int = 100
+            var x int = DoSomething() // ERROR: assigning string to int
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            VarDecl(
+                'x',
+                IntType(),
+                FuncCall(
+                    'DoSomething',
+                    []
+                )
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,480))
+
 
     def test_481(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var index int;
+            var value int;
+
+            for index, value := range [10]int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} {
+                putIntLn(value)
+            }
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,481))
 
-    def test_482(self):
+
+    def test_expression_operators(self):
         input = \
         '''
+        type Weapon struct {
+            dam int
+        }
+
         func main() {
-            var a int = 100
+            var w1 Weapon
+            var w2 Weapon
+            var result = w1 + w2 // ERROR: '+' not defined for struct types
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '+',
+                Id('w1'),
+                Id('w2')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,482))
+
 
     def test_483(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var f float = 2.5
+            var b boolean = true
+            var result = f * b // ERROR: '*' not valid between float and bool
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '*',
+                Id('f'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,483))
+
 
     def test_484(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var x int = 10
+            var result = !x // ERROR: '!' only valid on boolean types
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            UnaryOp(
+                '!',
+                Id('x')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,484))
+
 
     def test_485(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a string = "yes"
+            var b boolean = false
+            var result = a || b // ERROR: '||' not valid between string and bool
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '||',
+                Id('a'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,485))
+
 
     def test_486(self):
         input = \
         '''
+        type Weapon struct {
+            dam int
+        }
+
         func main() {
+            var w Weapon
             var a int = 100
+            var result = w == a // ERROR: cannot compare struct and int
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '==',
+                Id('w'),
+                Id('a')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,486))
+
 
     def test_487(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a int = 10
+            var b string = "ten"
+            var result = a < b // ERROR: '<' not valid between int and string
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            BinaryOp(
+                '<',
+                Id('a'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,487))
+
 
     def test_488(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var x int
+            x := 3.14 // ERROR: float assigned to int
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('x'),
+                FloatLiteral(3.14)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,488))
+
 
     def test_489(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a [3]int
+            b := [2]int{1, 2}
+            a := b // ERROR: array sizes do not match
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('a'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,489))
+
 
     def test_490(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a [2]float
+            b := [2]string{"a", "b"}
+            a := b // ERROR: cannot assign [2]string to [2]float
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('a'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,490))
 
     def test_491(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            x := 5
+            x := 3.14 // ERROR: variable redeclared with different inferred type
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('x'),
+                FloatLiteral(3.14)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,491))
+
 
     def test_492(self):
         input = \
         '''
+        func DoNothing() {
+            return
+        }
+
         func main() {
-            var a int = 100
+            x := DoNothing() // ERROR: cannot assign void return to variable
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            FuncCall(
+                'DoNothing',
+                [
+
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,492))
+
 
     def test_493(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a [3]float
+            b := [3]bool{true, false, true}
+            a := b // ERROR: bool cannot be assigned to float
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('a'),
+                Id('b')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,493))
+
 
     def test_494(self):
         input = \
         '''
+        type Swimmer interface {
+            Swim() boolean
+        }
+
+        type Person struct{
+            name string
+            age int
+        }
+
+        func (p Person) Swim() string {
+            return "yes"
+        }
+
         func main() {
-            var a int = 100
+            var s Swimmer
+            p := Person{}
+            s := p // ERROR: Swim() has incorrect return type
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('s'),
+                Id('p')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,494))
+
 
     def test_495(self):
         input = \
         '''
+        type Flyer interface {
+            Fly() int
+        }
+
+        type Fish struct{
+            name string
+        }
+
         func main() {
-            var a int = 100
+            var f Flyer
+            fish := Fish{}
+            f := fish // ERROR: Fish does not implement Fly()
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                Id('f'),
+                Id('fish')
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,495))
+
 
     def test_496(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            var a int
+            var b int
+
+            a := getInt()
+            b := getInt()
+
+            c := Add(a, b)
+
+            putIntLn(c)
+
+            var seed [100]int = [100]int{1, 2, 3, 4}
+
+            for var i int = 0 ; i < 100 ; i += 1 {
+                input := getInt()
+                seed[i] := input
+            }
+
+            random := GetRandom(seed)
+            putIntLn(random)
+        }
+
+        func Add(a int, b int) int {
+            return a + b
+        }
+
+        func Sub(a int, b int) int {
+            return a - b
+        }
+
+        func len(arr [100]int) int {
+            return 100
+        }
+
+        func GetRandom(seed [100]int) int {
+            var result int = 0
+            var prime int = 31
+            var mod int = 1000000007
+
+            for i := 0; i < len(seed); i += 1 {
+                result := (result * prime + seed[i]) % mod
+            }
+
+            if (result < 0) {
+            result := -result
+            }
+
+            return result
         }
         '''
         expect = ''
         self.assertTrue(TestChecker.test(input,expect,496))
 
+
     def test_497(self):
         input = \
         '''
         func main() {
-            var a int = 100
+            arr := [5]int{1, 2, 3, 4, 5}
+            x := arr[2.5] // ERROR: array index must be int
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            ArrayCell(
+                Id('arr'),
+                [
+                    FloatLiteral(2.5)
+                ]
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,497))
 
 
@@ -2110,10 +2407,21 @@ class CheckSuite(unittest.TestCase):
         input = \
         '''
         func main() {
-            var a int = 100
+            arr := [4]boolean{true, false, true, false}
+            arr[1] := 123 // ERROR: assigning int to bool element
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                ArrayCell(
+                    Id('arr'),
+                    [
+                        IntLiteral(1)
+                    ]
+                ),
+                IntLiteral(123)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,498))
 
 
@@ -2121,43 +2429,170 @@ class CheckSuite(unittest.TestCase):
         input = \
         '''
         func main() {
-            var a int = 100
+            const size = 100
+            var a [size]int
+
+            a[0] := true
         }
         '''
-        expect = ''
+        expect = type_mismatch(
+            Assign(
+                ArrayCell(
+                    Id('a'),
+                    [
+                        IntLiteral(0)
+                    ]
+                ),
+                BooleanLiteral(True)
+            )
+        )
         self.assertTrue(TestChecker.test(input,expect,499))
 
 
     def test_500(self):
         input = \
         '''
+        type Point struct {
+            x int
+            y int
+        }
+
         func main() {
-            var a float = 4.5
+            arr := [5]int{0, 1, 2, 3, 4}
+            p := Point{x : 100, y : 100, z : 500}
+            x := arr[p] // ERROR: struct cannot be used as array index
         }
         '''
-        expect = ''
+        expect = undeclared(ErrorKind.FIELD, 'z')
         self.assertTrue(TestChecker.test(input,expect,500))
 
 
-    # def test_sample(self):
-    #     input = \
-    #     '''
-    #     func main() {
-    #         var a int = 100
-    #     }
-    #     '''
-    #     expect = ''
-    #     self.assertTrue(TestChecker.test(input,expect,40))
+    def test_general_large_program(self):
+        input = \
+        '''
+        // Interface declaration
+        type Attacker interface {
+            Attack(e Player) int
+            GetWeapon(index int) Weapon
+        }
+
+        // Struct definitions
+        type Weapon struct {
+            name string
+            damage float
+            skills [3]int
+        }
+
+        type Player struct {
+            name string
+            health int
+            score int
+            inventory [2]Weapon
+        }
+
+        // Weapon methods
+        func (w Weapon) Use(skillIndex int) int {
+            return w.skills[skillIndex] * 10
+        }
+
+        func (w Weapon) Damage() float {
+            return w.damage
+        }
+
+        // Player methods implementing Attacker
+        func (p Player) Attack(enemy Player) int {
+            w := p.GetWeapon(0)
+            return FloatToInt(w.Damage()) + w.Use(1)
+        }
+
+        func FloatToInt(f float) int {
+            return 5
+        }
+
+        func (p Player) GetWeapon(index int) Weapon {
+            return p.inventory[index]
+        }
+
+        // Global functions
+        func Heal(p Player, amount int) Player {
+            p.health := p.health + amount
+            return p
+        }
+
+        func Equip(p Player, w Weapon, slot int) Player {
+            p.inventory[slot] := w
+            return p
+        }
+
+        func CreateWeapon() Weapon {
+            var w Weapon
+            w.name := "Blaster"
+            w.damage := 42.5
+            w.skills := [3]int{1, 2, 3}
+            return w
+        }
+
+        // Entry point
+        func main() {
+            // Player initialization
+            var hero Player
+            hero.name := "Astra"
+            hero.health := 100
+            hero.score := 0
+
+            // Weapon creation and assignment
+            var w1 Weapon = CreateWeapon()
+            var w2 Weapon
+            w2.name := "Sword"
+            w2.damage := 25.0
+            w2.skills := [3]int{2, 1, 0}
+
+            hero := Equip(hero, w1, 0)
+            hero := Equip(hero, w2, 1)
+
+            // Enemy setup
+            var enemy Player
+            enemy.name := "Drake"
+            enemy.health := 90
+            enemy.score := 5
+            enemy := Equip(enemy, w2, 0)
+
+            // Attack call using interface
+            var a Attacker = hero
+            var result int = a.Attack(enemy)
+
+            // Heal and update player
+            hero := Heal(hero, 10)
+
+            // Access field and method
+            var dmg float = hero.GetWeapon(1).Damage()
+            var skillPower int = hero.GetWeapon(0).Use(2)
+        }
+        '''
+
+        expect = ''
+        self.assertTrue(TestChecker.test(input, expect, 501))
+
+
+    def test_sample(self):
+        input = \
+        '''
+        func main() {
+            var a int = 100
+        }
+        '''
+        expect = ''
+        self.assertTrue(TestChecker.test(input,expect,502))
 
 
 
-    # def test_type_mismatch(self):
-    #     input = """var a int = 1.2;"""
-    #     expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
-    #     self.assertTrue(TestChecker.test(input,expect,403))
+    def test_type_mismatch(self):
+        input = """var a int = 1.2;"""
+        expect = "Type Mismatch: VarDecl(a,IntType,FloatLiteral(1.2))\n"
+        self.assertTrue(TestChecker.test(input,expect,503))
 
 
-    # def test_undeclared_identifier(self):
-    #     input = Program([VarDecl("a",IntType(),Id("b"))])
-    #     expect = "Undeclared Identifier: b\n"
-    #     self.assertTrue(TestChecker.test(input,expect,404))
+    def test_undeclared_identifier(self):
+        input = Program([VarDecl("a",IntType(),Id("b"))])
+        expect = "Undeclared Identifier: b\n"
+        self.assertTrue(TestChecker.test(input,expect,504))

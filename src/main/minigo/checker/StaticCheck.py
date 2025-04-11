@@ -1075,7 +1075,15 @@ class StaticChecker(BaseVisitor,Utils):
                 raise Undeclared(k=Identifier(), n=ast.name)
             
             elif isinstance(obj, (TypeName, Func)):
-                pass
+                # SOS
+                # wrong type
+                # we are needing Var or Const
+                # but resolve to TypeName or Func
+                # which is wrong
+                # 4/11/2025
+                # although we found
+                # but based on the assignment
+                raise Undeclared(k=Identifier(), n=ast.name)
 
             elif isinstance(obj, (Var, Const)):
                 return obj.type
@@ -1231,7 +1239,10 @@ class StaticChecker(BaseVisitor,Utils):
         elif isinstance(obj, (TypeName, Var, Const)):
             # SOS
             # NOT HAPPEN
-            pass
+            # we require function
+            # but resolve to something else
+            # then based on this assignment
+            raise Undeclared(k=Function(), n=funName)
 
         elif isinstance(obj, Func):
             # correctly resolve
@@ -1711,6 +1722,9 @@ class StaticChecker(BaseVisitor,Utils):
             
             if isinstance(obj, (Var, Const, Func)):
                 # SOS NOT HAPPEN
+                # resolve to something weird
+                # then it does not happen, so don't
+                # worry
                 pass
 
             if isinstance(obj, TypeName):
